@@ -1,0 +1,15 @@
+name: psn
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - keras>=2.8.0
+  - tensorflow-gpu>=2.8.1
+  - numpy
+  - pandas
+  - matplotlib
+  - scipy
+  - h5py
+  - pydot
+  - pip:
+    - visualkeras
