@@ -43,6 +43,10 @@ parser.add_argument('-t', '--tfdata', default=False, action='store_true',
                     help='use tf.data optimization')
 parser.add_argument('-n', '--nSample',    type=int, default=40000, \
                     help = "number of samples")
+parser.add_argument('-bc', '--modeBc', type=int, default=0, \
+                    help = "0: Zero boundary, 1: Dirichlet bc from Laplace")
+parser.add_argument('-eq', '--modeEquation', type=int, default=0, \
+                    help = "0: Poisson, 1: Laplace")
 
 # Plotting options
 parser.add_argument('-v', '--visualize', default=False, action='store_true', \
@@ -78,6 +82,7 @@ args = parser.parse_args()
 
 nSample = args.nSample
 shape = (32, 32)
+nx, ny = shape[0], shape[1]
 nChannel = 3 # bc, a, f
 nDim = 2
 
@@ -114,9 +119,15 @@ if not usingTfData:
   aData    = np.array(dFile.get('a'))
   fData    = np.array(dFile.get('f'))
   ppData   = np.array(dFile.get('pp'))
+  plData   = np.array(dFile.get('pl'))
+  pBcData  = np.array(dFile.get('pBc'))
   dFile.close()
 
   assert nSample == aData.shape[0] and nSample == fData.shape[0] and ppData.shape[0]
+
+  # Construct solution, bc, a, and f arrays for Poisson / Laplace equation
+  a  = np.expand_dims(aData, axis=-1)
+  f  = np.expand_dims(fData, axis=-1)
 
   # Construct bc array
   bcWidth     = 1
@@ -130,11 +141,18 @@ if not usingTfData:
   onesExpand  = np.expand_dims(onesExpand, axis=-1)
   # Repeat array 'nSample' times in 1st array dim
   bc          = np.repeat(onesExpand, nSample, axis=0)
+  # Fill boundary with Dirichlet bc values (data from Laplace solve, ie f=0)
+  if args.modeBc == 1:
+    bc[:,  0,  :, 0] = pBcData[:,:nx]                    # i- boundary
+    bc[:,  :, -1, 0] = pBcData[:,nx:nx+ny]               # j+ boundary
+    bc[:, -1,  :, 0] = np.flip(pBcData[:,nx+ny:2*nx+ny]) # i+ boundary
+    bc[:,  :,  0, 0] = np.flip(pBcData[:,2*nx+ny:])      # j- boundary
 
-  # Construct a, f, pp arrays - all need extra dim at end for channel
-  a  = np.expand_dims(aData, axis=-1)
-  f  = np.expand_dims(fData, axis=-1)
-  pp = np.expand_dims(ppData, axis=-1)
+  if args.modeEquation == 0: # Poisson
+    sol = np.expand_dims(ppData, axis=-1)
+  elif args.modeEquation == 1: # Laplace
+    sol = np.expand_dims(plData, axis=-1)
+    f *= 0.0 # For now, just set f to 0 and keep in channels
 
   # Combine bc, a, f along channel dim
   bcAF = np.concatenate((bc, a, f), axis=-1)
@@ -209,9 +227,9 @@ if usingTfData:
 else:
   # Split into training / validation sets
   xTrain    = bcAF[:nTrain, ...]
-  yTrain    = pp[:nTrain, ...]
+  yTrain    = sol[:nTrain, ...]
   xValidate = bcAF[-nValid:, ...]
-  yValidate = pp[-nValid:, ...]
+  yValidate = sol[-nValid:, ...]
 
 # Training
 startTrain = time.perf_counter()
