@@ -4,10 +4,8 @@ import h5py as h5
 import numpy as np
 from tensorflow import keras
 from datetime import datetime
-import Poisson_model as PsnModel
 import argparse
 import matplotlib.pyplot as plt
-import pandas as pd
 import tensorflow as tf
 import time
 from PIL import ImageFont
@@ -15,7 +13,8 @@ from PIL import ImageFont
 import tensorflow.keras.callbacks as KC
 
 from Poisson_dataset import PoissonDataset
-from Poisson_util import TimeHistory
+import Poisson_util as UT
+import Poisson_model as PM
 
 keras.backend.set_floatx('float32')
 
@@ -39,14 +38,18 @@ parser.add_argument('-restart', '--restart', default=False, action='store_true',
                     help='restart from checkpoint')
 parser.add_argument('-ckpnt', '--checkpoint', default=None, help='checkpoint name')
 parser.add_argument('-b', '--batchsize', default=200, type=int, help='batch size')
-parser.add_argument('-t', '--tfdata', default=False, action='store_true',
+parser.add_argument('-tf', '--tfdata', default=False, action='store_true', \
                     help='use tf.data optimization')
-parser.add_argument('-n', '--nSample',    type=int, default=40000, \
+parser.add_argument('-n', '--nSample', type=int, default=40000, \
                     help = "number of samples")
 parser.add_argument('-bc', '--modeBc', type=int, default=0, \
                     help = "0: Zero boundary, 1: Dirichlet bc from Laplace")
 parser.add_argument('-eq', '--modeEquation', type=int, default=0, \
                     help = "0: Poisson, 1: Laplace")
+parser.add_argument('-t', '--train', type=int, default=1, \
+                    help = "enable / disable training")
+parser.add_argument('-p', '--predict', type=int, default=0, \
+                    help = "enable / disable prediction by specifying number of predictions")
 
 # Plotting options
 parser.add_argument('-v', '--visualize', default=False, action='store_true', \
@@ -56,7 +59,7 @@ parser.add_argument('-tbd', '--tboardDir', default='logs/', help='Tensorboard lo
 # Learning rate
 parser.add_argument('-lr0', '--lr0', type=float, default=5e-4, help='init leanring rate')
 parser.add_argument('-lrmin', '--lrmin', type=float, default=1e-7, help='min leanring rate')
-parser.add_argument('-p', '--patience', type=int, default=200, \
+parser.add_argument('-pa', '--patience', type=int, default=200, \
                     help='patience for reducing learning rate')
 
 # Model architecture (symmetric U-Net by default)
@@ -85,6 +88,8 @@ shape = (32, 32)
 nx, ny = shape
 nChannel = 3 # bc, a, f
 nDim = 2
+nEpoch = args.nEpoch
+nPred = args.predict
 
 # Insert values from args (input layer needs shape definition)
 args.architecture[0] = args.architecture[0].format(shape[0], shape[1], nChannel, args.batchsize)
@@ -102,11 +107,14 @@ usingTfData = args.tfdata
 if usingTfData: print('Enabled tf.data optimization')
 
 # Traing and validation split
+nTrain = int(nSample * 0.8)
 nValid = int(nSample * 0.1)
-nTrain = nSample - nValid
+nTest  = nSample - nTrain - nValid
+
 batchSize = args.batchsize
 print('{} samples in training, {} in validation'.format(nTrain, nValid))
 fname = '../data/psn_{}_{}.h5'.format(shape[0], nSample)
+eqName = 'Poisson' if args.modeEquation == 0 else 'Laplace'
 
 # Load external data
 if not usingTfData:
@@ -155,9 +163,9 @@ if not usingTfData:
     bc /= bcCnt
 
   if args.modeEquation == 0: # Poisson
-    sol = np.expand_dims(ppData, axis=-1)
+    p = np.expand_dims(ppData, axis=-1)
   elif args.modeEquation == 1: # Laplace
-    sol = np.expand_dims(plData, axis=-1)
+    p = np.expand_dims(plData, axis=-1)
     f *= 0.0 # For now, just set f to 0 and keep in channels
 
   # Combine bc, a, f along channel dim
@@ -165,16 +173,16 @@ if not usingTfData:
 
 # Create model
 #with PsnModel.strategy.scope():
-psnNet = PsnModel.PsnCnn(nCell=shape, operators=args.architecture, \
+psnNet = PM.PsnCnn(nCell=shape, operators=args.architecture, \
                          act=args.activation, last_act='linear', \
                          reg=args.reg, alpha=args.alpha)
 psnNet.compile(optimizer=keras.optimizers.Adam(learning_rate=args.lr0))
 
 # Create unique name based on args describing model
 psnPrefix = args.name
-psnSuffix = 'a-{}_e-{}_n-{}_b-{}_a-{}_p-{}_t-{}_l-{}' \
-            .format(args.alpha, args.nEpoch, nSample, batchSize, args.activation, \
-            args.patience, int(args.tfdata), tinyArch)
+psnSuffix = '{}_bc-{}_a-{}_e-{}_n-{}_b-{}_a-{}_p-{}_t-{}_l-{}' \
+            .format(eqName, args.modeBc, args.alpha, args.nEpoch, nSample, \
+            batchSize, args.activation, args.patience, int(args.tfdata), tinyArch)
 modelName = '{}_{}'.format(psnPrefix, psnSuffix)
 
 # Plot model
@@ -193,7 +201,7 @@ if args.visualize:
                            legend=True, font=font, spacing=80, scale_xy=20, scale_z=1)
 
 # Callbacks
-timeHistCB   = TimeHistory()
+timeHistCB   = UT.TimeHistory()
 tboardCB     = KC.TensorBoard(log_dir=os.path.join(args.tboardDir, \
                                 datetime.now().strftime("%Y%m%d-%H%M%S")), \
                               histogram_freq=1, \
@@ -204,7 +212,6 @@ checkpointCB = KC.ModelCheckpoint(filepath='./' + modelName + '/checkpoint', \
 reduceLrCB   = KC.ReduceLROnPlateau(monitor='loss', min_delta=0.01, \
                                     patience=args.patience, min_lr=args.lrmin)
 csvLogCB     = keras.callbacks.CSVLogger(modelName + '.log', append=True)
-
 psnCBs = [timeHistCB, tboardCB, checkpointCB, reduceLrCB, csvLogCB]
 
 # Split samples into training, validation
@@ -233,43 +240,121 @@ if usingTfData:
 else:
   # Split into training / validation sets
   xTrain    = bcAF[:nTrain, ...]
-  yTrain    = sol[:nTrain, ...]
-  xValidate = bcAF[-nValid:, ...]
-  yValidate = sol[-nValid:, ...]
+  yTrain    = p[:nTrain, ...]
+  xValidate = bcAF[nTrain:nTrain+nValid, ...]
+  yValidate = p[nTrain:nTrain+nValid, ...]
 
 # Training
-startTrain = time.perf_counter()
-if usingTfData:
-  psnNet.fit(
-      trainDataset,
-      initial_epoch=args.initTrain,
-      epochs=args.nEpoch,
-      steps_per_epoch=nTrain//batchSize,
-      callbacks=psnCBs,
-      validation_data=validDataset,
-      validation_steps=nValid//batchSize,
-      verbose=True)
-else:
-  psnNet.fit(
-      x=xTrain,
-      y=yTrain,
-      batch_size=batchSize,
-      initial_epoch=args.initTrain,
-      epochs=args.nEpoch,
-      steps_per_epoch=nTrain//batchSize,
-      callbacks=psnCBs,
-      validation_data=(xValidate, yValidate),
-      validation_steps=nValid//batchSize,
-      verbose=True)
-endTrain = time.perf_counter()
-#print("fit() execution time in secs:", endTrain - startTrain)
+if args.train:
+  startTrain = time.perf_counter()
+  if usingTfData:
+    psnNet.fit(
+        trainDataset,
+        initial_epoch=args.initTrain,
+        epochs=nEpoch,
+        steps_per_epoch=nTrain//batchSize,
+        callbacks=psnCBs,
+        validation_data=validDataset,
+        validation_steps=nValid//batchSize,
+        verbose=True)
+  else:
+    psnNet.fit(
+        x=xTrain,
+        y=yTrain,
+        batch_size=batchSize,
+        initial_epoch=args.initTrain,
+        epochs=nEpoch,
+        steps_per_epoch=nTrain//batchSize,
+        callbacks=psnCBs,
+        validation_data=(xValidate, yValidate),
+        validation_steps=nValid//batchSize,
+        verbose=True)
+  endTrain = time.perf_counter()
+  print("fit() execution time in secs:", endTrain - startTrain)
 
-# Evaluate callbacks
-avgTimeEpoch = sum(timeHistCB.times) / len(timeHistCB.times)
-print('{} samples ==> Average time per epoch: {}'.format(nSample, avgTimeEpoch))
+  # Evaluate callbacks
+  avgTimeEpoch = sum(timeHistCB.times) / len(timeHistCB.times)
+  print('{} samples ==> Average time per epoch: {}'.format(nSample, avgTimeEpoch))
 
-with open('{}_epochtimes_{}.txt'.format(psnPrefix, psnSuffix), 'w') as f:
-  for t in timeHistCB.times:
-    f.write(f'{t}\n')
-  f.write(f'Average: {avgTimeEpoch}\n')
+  with open('{}_epochtimes_{}.txt'.format(psnPrefix, psnSuffix), 'w') as efile:
+    for t in timeHistCB.times:
+      efile.write(f'{t}\n')
+    efile.write(f'Average: {avgTimeEpoch}\n')
+
+# Predictions
+if nPred > 0:
+  if not os.path.exists(modelName):
+    sys.exit('Model {} does not exist, exiting'.format(modelName))
+
+  if not args.train:
+    print('Restoring model {}'.format(modelName))
+    psnNet.load_weights(tf.train.latest_checkpoint(modelName)).expect_partial()
+
+  # Predict on test data
+  sP = nSample - nTest
+  eP = sP + nPred
+  samples = bcAF[sP:eP, ...]
+  phat = psnNet.predict(samples)
+
+  # Get statistics per frame
+  maeLst, rmseLst, mapeLst = [], [], []
+  for i in range(nPred):
+    maeLst.append(UT.mae(p[i,:,:,0], phat[i,:,:,0]))
+    rmseLst.append(UT.rmse(p[i,:,:,0], phat[i,:,:,0]))
+    mapeLst.append(UT.mape(p[i,:,:,0], phat[i,:,:,0]))
+
+  # Plots
+  fig = plt.figure(figsize=(21, 1+2*nPred), dpi=120, constrained_layout=True)
+  fig.suptitle('{}: bc, a, f, p, phat'.format(eqName), fontsize=16)
+
+  # Min, max values, needed for colobar range
+  minBc, maxBc     = np.min(bc[i, ...]), np.max(bc[i, ...])
+  minA, maxA       = np.min(a[i, ...]), np.max(a[i, ...])
+  minF, maxF       = np.min(f[i, ...]), np.max(f[i, ...])
+  minP, maxP       = np.min(p[i, ...]), np.max(p[i, ...])
+  minPHat, maxPHat = np.min(phat[i, ...]), np.max(phat[i, ...])
+
+  nCols = 7
+  for i in range(nPred):
+    cnt = i*nCols
+
+    ax = fig.add_subplot(nPred, nCols, cnt+1)
+    plt.ylabel("Frame {}".format(sP+i))
+    plt.title('bc')
+    plt.imshow(bc[i, ...], vmin=minBc, vmax=maxBc, origin='lower')
+    plt.colorbar()
+
+    ax = fig.add_subplot(nPred, nCols, cnt+2)
+    plt.title('a')
+    plt.imshow(a[i, ...], vmin=minA, vmax=maxA, origin='lower')
+    plt.colorbar()
+
+    ax = fig.add_subplot(nPred, nCols, cnt+3)
+    plt.title('f')
+    plt.imshow(f[i, ...], vmin=minF, vmax=maxF, origin='lower')
+    plt.colorbar()
+
+    ax = fig.add_subplot(nPred, nCols, cnt+4)
+    plt.title('p')
+    plt.imshow(p[i, ...], vmin=minP, vmax=maxP, origin='lower')
+    plt.colorbar()
+
+    ax = fig.add_subplot(nPred, nCols, cnt+5)
+    plt.title('phat')
+    plt.imshow(phat[i, ...], vmin=minP, vmax=maxP, origin='lower')
+    plt.colorbar()
+
+    ax = fig.add_subplot(nPred, nCols, cnt+6)
+    plt.title('phat (own colorbar)')
+    plt.imshow(phat[i, ...], vmin=minPHat, vmax=maxPHat, origin='lower')
+    plt.colorbar()
+
+    ax = fig.add_subplot(nPred, nCols, cnt+7)
+    ax.axis('off')
+    plt.title('Stats')
+    plt.text(0.2, 0.3, 'MAE: %.4f' % maeLst[i])
+    plt.text(0.2, 0.5, 'RMSE: %.4f' % rmseLst[i])
+    plt.text(0.2, 0.7, 'MAPE: %.4f' % mapeLst[i])
+
+  plt.savefig('{}_{}_bc_a_f_p_phat.png'.format(args.name, eqName), bbox_inches='tight')
 
