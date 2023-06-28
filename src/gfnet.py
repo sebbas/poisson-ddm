@@ -82,7 +82,7 @@ args = parser.parse_args()
 
 nSample = args.nSample
 shape = (32, 32)
-nx, ny = shape[0], shape[1]
+nx, ny = shape
 nChannel = 3 # bc, a, f
 nDim = 2
 
@@ -143,10 +143,16 @@ if not usingTfData:
   bc          = np.repeat(onesExpand, nSample, axis=0)
   # Fill boundary with Dirichlet bc values (data from Laplace solve, ie f=0)
   if args.modeBc == 1:
-    bc[:,  0,  :, 0] = pBcData[:,:nx]                    # i- boundary
-    bc[:,  :, -1, 0] = pBcData[:,nx:nx+ny]               # j+ boundary
-    bc[:, -1,  :, 0] = np.flip(pBcData[:,nx+ny:2*nx+ny]) # i+ boundary
-    bc[:,  :,  0, 0] = np.flip(pBcData[:,2*nx+ny:])      # j- boundary
+    bc[:,  0,  :, 0] += pBcData[:,:nx]                    # i- boundary
+    bc[:,  :, -1, 0] += pBcData[:,nx:nx+ny]               # j+ boundary
+    bc[:, -1,  :, 0] += np.flip(pBcData[:,nx+ny:2*nx+ny]) # i+ boundary
+    bc[:,  :,  0, 0] += np.flip(pBcData[:,2*nx+ny:])      # j- boundary
+    # Average bc values to counterbalance overlap in corner cells
+    bcCnt = np.ones_like(bc)
+    corners = [[0,0], [nx-1,0], [0,ny-1], [nx-1,ny-1]]
+    for x,y in corners:
+      bcCnt[:,x,y,0] += 1
+    bc /= bcCnt
 
   if args.modeEquation == 0: # Poisson
     sol = np.expand_dims(ppData, axis=-1)
