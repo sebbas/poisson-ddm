@@ -114,7 +114,6 @@ nTest  = nSample - nTrain - nValid
 batchSize = args.batchsize
 print('{} samples in training, {} in validation'.format(nTrain, nValid))
 fname = '../data/psn_{}_{}.h5'.format(shape[0], nSample)
-eqName = 'Poisson' if args.modeEquation == 0 else 'Laplace'
 
 # Load external data
 if not usingTfData:
@@ -162,11 +161,17 @@ if not usingTfData:
       bcCnt[:,x,y,0] += 1
     bc /= bcCnt
 
-  if args.modeEquation == 0: # Poisson
+  if args.modeEquation == 0: # Homogeneous Poisson
     p = np.expand_dims(ppData, axis=-1)
-  elif args.modeEquation == 1: # Laplace
+    eqName = 'Homo_Poisson'
+  elif args.modeEquation == 1: # Inhomogeneous Laplace
     p = np.expand_dims(plData, axis=-1)
     f *= 0.0 # For now, just set f to 0 and keep in channels
+    eqName = 'Inhomo_Laplace'
+  elif args.modeEquation == 2: # Inhomogeneous Poisson (i.e. Homogeneous Poisson + Inhomogeneous Laplace)
+    pplData = ppData + plData
+    p = np.expand_dims(pplData, axis=-1)
+    eqName = 'Inhomo_Poisson'
 
   # Combine bc, a, f along channel dim
   bcAF = np.concatenate((bc, a, f), axis=-1)
