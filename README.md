@@ -17,7 +17,7 @@ Generate a dataset with e.g. 1000 samples:
 
 ### Training
 
-Train the homogeneous Poisson equation the dataset for 100 epochs and batchsize 64:
+Train the homogeneous Poisson equation for 100 epochs and with batchsize 64:
 
 `python gfnet.py -n 1000 -e 100 -f ../data/psn_32_1000.h5 -b 64 -eq 0 -bc 0`
 
