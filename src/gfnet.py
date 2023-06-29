@@ -50,6 +50,8 @@ parser.add_argument('-t', '--train', type=int, default=1, \
                     help = "enable / disable training")
 parser.add_argument('-p', '--predict', type=int, default=0, \
                     help = "enable / disable prediction by specifying number of predictions")
+parser.add_argument('-ps', '--predictionSource', type=int, default=0, \
+                    help = "0: predict on training data, 1: predict on validation data, 2: predict on test data")
 
 # Plotting options
 parser.add_argument('-v', '--visualize', default=False, action='store_true', \
@@ -304,8 +306,12 @@ if nPred > 0:
     print('Restoring model {}'.format(modelName))
     psnNet.load_weights(tf.train.latest_checkpoint(modelName)).expect_partial()
 
-  # Predict on test data
-  sP = nSample - nTest
+  if args.predictionSource == 0:  # Predict on training data
+    sP = 0
+  elif args.predictionSource == 1: # Predict on validation data
+    sP = nTrain
+  elif args.predictionSource == 2: # Predict on test data
+    sP = nTrain + nValid
   eP = sP + nPred
   samples = bcAF[sP:eP, ...]
   phat = psnNet.predict(samples)
@@ -370,5 +376,5 @@ if nPred > 0:
     plt.text(0.2, 0.5, 'RMSE: %.4f' % rmseLst[i])
     plt.text(0.2, 0.7, 'MAPE: %.4f' % mapeLst[i])
 
-  plt.savefig('{}_{}_bc_a_f_p_phat.png'.format(args.name, eqName), bbox_inches='tight')
+  plt.savefig('{}_{}_ps-{}_bc_a_f_p_phat.png'.format(args.name, eqName, args.predictionSource), bbox_inches='tight')
 
