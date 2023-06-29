@@ -61,6 +61,8 @@ parser.add_argument('-lr0', '--lr0', type=float, default=5e-4, help='init leanri
 parser.add_argument('-lrmin', '--lrmin', type=float, default=1e-7, help='min leanring rate')
 parser.add_argument('-pa', '--patience', type=int, default=200, \
                     help='patience for reducing learning rate')
+parser.add_argument('-lr',  '--restartLr', type=float, default=None,
+                     help='learning rate to restart training')
 
 # Model architecture (symmetric U-Net by default)
 parser.add_argument('-l', '--architecture', type=str, nargs='*', \
@@ -218,6 +220,13 @@ reduceLrCB   = KC.ReduceLROnPlateau(monitor='loss', min_delta=0.01, \
                                     patience=args.patience, min_lr=args.lrmin)
 csvLogCB     = keras.callbacks.CSVLogger(modelName + '.log', append=True)
 psnCBs = [timeHistCB, tboardCB, checkpointCB, reduceLrCB, csvLogCB]
+
+if args.restart:
+  print('Restoring model {}'.format(modelName))
+  ckpntName = modelName if args.checkpoint == None else args.checkpoint
+  psnNet.load_weights(tf.train.latest_checkpoint(ckpntName))
+  if args.restartLr != None:
+    keras.backend.set_value(psnNet.optimizer.learning_rate, args.restartLr)
 
 # Split samples into training, validation
 if usingTfData:
