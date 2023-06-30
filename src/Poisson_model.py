@@ -13,6 +13,7 @@ import numpy as np
 # bilinup_m     - up sampling (bilinear), size (m, m)
 # nearup_m      - up sampling (nearest),  size (m, m)
 # batchnorm     - batch normalization
+# dropout_r     - dropout, r rate (r == 3 ~> rate=0.3)
 # -----------------------------------------------------------
 
 strategy = tf.distribute.MirroredStrategy()
@@ -143,6 +144,12 @@ class PsnCnn(keras.Model):
 
       elif layerName == 'concat':
         self.mlp.append( KL.Concatenate() )
+
+      elif layerName == 'dropout':
+        rate = layerArgs[0]
+        assert rate >= 0 and rate <= 10
+        rate *= 1e-1 # convert int input to [0,1] float
+        self.mlp.append( KL.Dropout( rate=rate) )
 
       tf.print('==> {} layer with args {}'.format(layerName, layerArgs[0:]))
 

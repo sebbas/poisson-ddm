@@ -106,21 +106,25 @@ parser.add_argument('-l', '--architecture', type=str, nargs='*', \
                                        'conv_3_1024_1',   # 14
                                      'tconv_3_512_1_2',   # 15
                                      'concat_15_11',      # 16
-                                     'conv_3_512_1',      # 17
+                                     'dropout_3',         # 17
                                      'conv_3_512_1',      # 18
-                                   'tconv_3_256_1_2',     # 19
-                                   'concat_19_8',         # 20
-                                   'conv_3_256_1',        # 21
-                                   'conv_3_256_1',        # 22
-                                 'tconv_3_128_1_2',       # 23
-                                 'concat_23_5',           # 24
-                                 'conv_3_128_1',          # 25
-                                 'conv_3_128_1',          # 26
-                               'tconv_3_64_1_2',          # 27
-                               'concat_27_2',             # 28
-                               'conv_3_64_1',             # 29
-                               'conv_3_64_1',             # 30
-                             'conv_3_1_1'],               # 31
+                                     'conv_3_512_1',      # 19
+                                   'tconv_3_256_1_2',     # 20
+                                   'concat_20_8',         # 21
+                                   'dropout_3',           # 22
+                                   'conv_3_256_1',        # 23
+                                   'conv_3_256_1',        # 24
+                                 'tconv_3_128_1_2',       # 25
+                                 'concat_25_5',           # 26
+                                 'dropout_3',             # 27
+                                 'conv_3_128_1',          # 28
+                                 'conv_3_128_1',          # 29
+                               'tconv_3_64_1_2',          # 30
+                               'concat_30_2',             # 31
+                               'dropout_3',               # 32
+                               'conv_3_64_1',             # 33
+                               'conv_3_64_1',             # 34
+                             'conv_3_1_1'],               # 35
                     help='type and arguments of each layer')
 
 args = parser.parse_args()
