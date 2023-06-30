@@ -6,10 +6,10 @@ import numpy as np
 
 # -------------------- name of operators --------------------
 # input_w_h_c_b - input layer,            shape (w, h), channels c, batchsize b
-# conv_m_n      - convolution,            kernel size m, n filters
-# tconv_m_n     - transposed convolution, kernel size m, n filters
+# conv_m_n_p    - convolution,            kernel size m, n filters, padding (0 == valid, 1 == same)
+# tconv_m_n_p_s - transposed convolution, kernel size m, n filters, padding (0 == valid, 1 == same), s strides
 # avgpl_m       - average pooling,        size (m, m)
-# maxpl_m_p     - max pooling,            size (m, m), padding (1 == valid, 0 == same)
+# maxpl_m_p     - max pooling,            size (m, m), padding (0 == valid, 1 == same)
 # bilinup_m     - up sampling (bilinear), size (m, m)
 # nearup_m      - up sampling (nearest),  size (m, m)
 # batchnorm     - batch normalization
@@ -50,11 +50,7 @@ class PsnCnn(keras.Model):
     self.mlp = []
     for i, op in enumerate(self.operators):
 
-      # Identify the layer name
-      strs = op.split('_')
-      layerName = strs[0]
-      # Convert the layer args from string to int
-      layerArgs = [int(s) for s in strs[1:]]
+      layerName, layerArgs = self._getLayerName(op)
 
       # Use custom activation function in last layer
       isLastLayer = (i == len(operators)-1)
@@ -76,26 +72,34 @@ class PsnCnn(keras.Model):
 
       ## Convolution
       if layerName == 'conv':
+        padding = 'valid' if layerArgs[2] == 0 else 'same'
         if self.nDim == 2:
           self.mlp.append( KL.Conv2D( filters=layerArgs[1],
                                       kernel_size=layerArgs[0],
                                       activation=activation,
+                                      padding=padding,
                                       data_format=self.dataForm) )
         elif self.nDim == 3:
           self.mlp.append( KL.Conv3D( filters=layerArgs[1],
                                       kernel_size=layerArgs[0],
+                                      padding=padding,
                                       activation=activation,
                                       data_format=self.dataForm) )
       ## Deconvolution
       elif layerName == 'tconv':
+        padding = 'valid' if layerArgs[2] == 0 else 'same'
         if self.nDim == 2:
           self.mlp.append( KL.Conv2DTranspose( filters=layerArgs[1],
                                                kernel_size=layerArgs[0],
+                                               padding=padding,
+                                               strides=layerArgs[3],
                                                activation=activation,
                                                data_format=self.dataForm) )
         elif self.nDim == 3:
           self.mlp.append( KL.Conv3DTranspose( filters=layerArgs[1],
                                                kernel_size=layerArgs[0],
+                                               padding=padding,
+                                               strides=layerArgs[3],
                                                activation=activation,
                                                data_format=self.dataForm) )
       ## Pooling and upsampling
@@ -137,6 +141,9 @@ class PsnCnn(keras.Model):
       elif layerName == 'batchnorm':
         self.mlp.append( KL.BatchNormalization() )
 
+      elif layerName == 'concat':
+        self.mlp.append( KL.Concatenate() )
+
       tf.print('==> {} layer with args {}'.format(layerName, layerArgs[0:]))
 
     # Dicts for metrics and statistics
@@ -167,11 +174,28 @@ class PsnCnn(keras.Model):
     self.validStat = {}
 
 
+  def _getLayerName(self, operator):
+      strs = operator.split('_')
+      layerName = strs[0]
+      layerArgs = [int(s) for s in strs[1:]] # Convert layer args from string to int
+      return layerName, layerArgs
+
+
   def call(self, inputs, training=False):
-    x = self.inputLayer(inputs)
-    for layer in self.mlp:
-      x = layer(x)
-    return x
+    layers = [self.inputLayer(inputs)]
+
+    for i, (curLayer, op) in enumerate(zip(self.mlp, self.operators[1:])):
+      layerName, layerArgs = self._getLayerName(op)
+
+      if layerName == 'concat':
+        p1, p2 = layerArgs[0], layerArgs[1] # indices in operator list of layers to concat
+        nextLayer = curLayer([layers[p1], layers[p2]])
+      else:
+        prevLayer = layers[-1]
+        nextLayer = curLayer(prevLayer)
+
+      layers.append(nextLayer)
+    return nextLayer
 
 
   def _compute_data_loss(self, pp, ppPred):

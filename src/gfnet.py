@@ -66,23 +66,61 @@ parser.add_argument('-pa', '--patience', type=int, default=200, \
 parser.add_argument('-lr',  '--restartLr', type=float, default=None,
                      help='learning rate to restart training')
 
-# Model architecture (symmetric U-Net by default)
+'''
+# Model architecture (simplified U-Net)
 parser.add_argument('-l', '--architecture', type=str, nargs='*', \
                     default=['input_{}_{}_{}_{}', \
-                             'conv_3_64', \
-                               'conv_3_128', \
+                             'conv_3_64_0', \
+                               'conv_3_128_0', \
                                  'maxpl_2_0', \
-                                   'conv_3_256', \
+                                   'conv_3_256_0', \
                                      'maxpl_2_0', \
-                                       'conv_3_512', \
-                                         'conv_3_1024', \
-                                         'tconv_3_512',\
-                                       'tconv_3_256',\
+                                       'conv_3_512_0', \
+                                         'conv_3_1024_0', \
+                                         'tconv_3_512_0_1',\
+                                       'tconv_3_256_0_1',\
                                      'bilinup_2', \
-                                   'tconv_3_128',\
+                                   'tconv_3_128_0_1',\
                                  'bilinup_2', \
-                               'tconv_3_64',\
-                             'tconv_3_1'],\
+                               'tconv_3_64_0_1',\
+                             'tconv_3_1_0_1'],\
+                    help='type and arguments of each layer')
+'''
+
+# Model architecture (full U-Net)
+parser.add_argument('-l', '--architecture', type=str, nargs='*', \
+                    default=['input_{}_{}_{}_{}',         #  0
+                               'conv_3_64_1',             #  1
+                               'conv_3_64_1',             #  2
+                               'maxpl_2_0',               #  3
+                                 'conv_3_128_1',          #  4
+                                 'conv_3_128_1',          #  5
+                                 'maxpl_2_0',             #  6
+                                   'conv_3_256_1',        #  7
+                                   'conv_3_256_1',        #  8
+                                   'maxpl_2_0',           #  9
+                                     'conv_3_512_1',      # 10
+                                     'conv_3_512_1',      # 11
+                                     'maxpl_2_0',         # 12
+                                       'conv_3_1024_1',   # 13
+                                       'conv_3_1024_1',   # 14
+                                     'tconv_3_512_1_2',   # 15
+                                     'concat_15_11',      # 16
+                                     'conv_3_512_1',      # 17
+                                     'conv_3_512_1',      # 18
+                                   'tconv_3_256_1_2',     # 19
+                                   'concat_19_8',         # 20
+                                   'conv_3_256_1',        # 21
+                                   'conv_3_256_1',        # 22
+                                 'tconv_3_128_1_2',       # 23
+                                 'concat_23_5',           # 24
+                                 'conv_3_128_1',          # 25
+                                 'conv_3_128_1',          # 26
+                               'tconv_3_64_1_2',          # 27
+                               'concat_27_2',             # 28
+                               'conv_3_64_1',             # 29
+                               'conv_3_64_1',             # 30
+                             'conv_3_1_1'],               # 31
                     help='type and arguments of each layer')
 
 args = parser.parse_args()
