@@ -12,7 +12,7 @@ from PIL import ImageFont
 
 import tensorflow.keras.callbacks as KC
 
-from Poisson_dataset import PoissonDataset
+import Poisson_dataset as PD
 import Poisson_util as UT
 import Poisson_model as PM
 
@@ -42,15 +42,13 @@ parser.add_argument('-tf', '--tfdata', default=False, action='store_true', \
                     help='use tf.data optimization')
 parser.add_argument('-n', '--nSample', type=int, default=40000, \
                     help = "number of samples")
-parser.add_argument('-bc', '--modeBc', type=int, default=0, \
-                    help = "0: Zero boundary, 1: Dirichlet bc from Laplace")
 parser.add_argument('-eq', '--modeEquation', type=int, default=0, \
                     help = "0: Poisson, 1: Laplace")
 parser.add_argument('-t', '--train', type=int, default=1, \
                     help = "enable / disable training")
 parser.add_argument('-p', '--predict', type=int, default=0, \
                     help = "enable / disable prediction by specifying number of predictions")
-parser.add_argument('-ps', '--predictionSource', type=int, default=0, \
+parser.add_argument('-ps', '--predictionSource', type=int, default=2, \
                     help = "0: predict on training data, 1: predict on validation data, 2: predict on test data")
 
 # Plotting options
@@ -154,8 +152,7 @@ if usingTfData: print('Enabled tf.data optimization')
 
 # Traing and validation split
 nTrain = int(nSample * 0.8)
-nValid = int(nSample * 0.1)
-nTest  = nSample - nTrain - nValid
+nValid = nSample - nTrain
 
 batchSize = args.batchsize
 print('{} samples in training, {} in validation'.format(nTrain, nValid))
@@ -163,77 +160,20 @@ fname = '../data/psn_{}_{}.h5'.format(shape[0], nSample)
 
 # Load external data
 if not usingTfData:
-  dFile = h5.File(fname, 'r')
-  n        = dFile.attrs['nSample']
-  assert nSample == n
-  s        = dFile.attrs['shape']
-  assert all(x == y for x, y in zip(shape, s))
-  length   = dFile.attrs['length']
-  aData    = np.array(dFile.get('a'))
-  fData    = np.array(dFile.get('f'))
-  ppData   = np.array(dFile.get('pp'))
-  plData   = np.array(dFile.get('pl'))
-  pBcData  = np.array(dFile.get('pBc'))
-  dFile.close()
-
-  assert nSample == aData.shape[0] and nSample == fData.shape[0] and ppData.shape[0]
-
-  # Construct solution, bc, a, and f arrays for Poisson / Laplace equation
-  a  = np.expand_dims(aData, axis=-1)
-  f  = np.expand_dims(fData, axis=-1)
-
-  # Construct bc array
-  bcWidth     = 1
-  # Times 2 because bc always on 2 sides in one dim
-  pad         = bcWidth * 2
-  sizeNoPad   = np.subtract(shape, pad) # Array size without padding
-  # 0s on border of ones array
-  onesWithPad = np.pad(np.ones(sizeNoPad), bcWidth)
-  # Extra dim at beginning to match batchsize and at end to match channels
-  onesExpand  = np.expand_dims(onesWithPad, axis=0)
-  onesExpand  = np.expand_dims(onesExpand, axis=-1)
-  # Repeat array 'nSample' times in 1st array dim
-  bc          = np.repeat(onesExpand, nSample, axis=0)
-  # Fill boundary with Dirichlet bc values (data from Laplace solve, ie f=0)
-  if args.modeBc == 1:
-    bc[:,  0,  :, 0] += pBcData[:,:nx]                    # i- boundary
-    bc[:,  :, -1, 0] += pBcData[:,nx:nx+ny]               # j+ boundary
-    bc[:, -1,  :, 0] += np.flip(pBcData[:,nx+ny:2*nx+ny]) # i+ boundary
-    bc[:,  :,  0, 0] += np.flip(pBcData[:,2*nx+ny:])      # j- boundary
-    # Average bc values to counterbalance overlap in corner cells
-    bcCnt = np.ones_like(bc)
-    corners = [[0,0], [nx-1,0], [0,ny-1], [nx-1,ny-1]]
-    for x,y in corners:
-      bcCnt[:,x,y,0] += 1
-    bc /= bcCnt
-
-  if args.modeEquation == 0: # Homogeneous Poisson
-    p = np.expand_dims(ppData, axis=-1)
-    eqName = 'Homo_Poisson'
-  elif args.modeEquation == 1: # Inhomogeneous Laplace
-    p = np.expand_dims(plData, axis=-1)
-    f *= 0.0 # For now, just set f to 0 and keep in channels
-    eqName = 'Inhomo_Laplace'
-  elif args.modeEquation == 2: # Inhomogeneous Poisson (i.e. Homogeneous Poisson + Inhomogeneous Laplace)
-    pplData = ppData + plData
-    p = np.expand_dims(pplData, axis=-1)
-    eqName = 'Inhomo_Poisson'
-
-  # Combine bc, a, f along channel dim
-  bcAF = np.concatenate((bc, a, f), axis=-1)
+  bcAF, p = PD.getBcAFP(fname, nSample, shape, args.modeEquation)
 
 # Create model
-#with PsnModel.strategy.scope():
+#with PM.strategy.scope():
 psnNet = PM.PsnCnn(nCell=shape, operators=args.architecture, \
-                         act=args.activation, last_act='linear', \
-                         reg=args.reg, alpha=args.alpha)
+                   act=args.activation, last_act='linear', \
+                   reg=args.reg, alpha=args.alpha)
 psnNet.compile(optimizer=keras.optimizers.Adam(learning_rate=args.lr0))
 
 # Create unique name based on args describing model
-psnPrefix = args.name
-psnSuffix = '{}_bc-{}_a-{}_e-{}_n-{}_b-{}_a-{}_p-{}_t-{}_l-{}' \
-            .format(eqName, args.modeBc, args.alpha, args.nEpoch, nSample, \
-            batchSize, args.activation, args.patience, int(args.tfdata), tinyArch)
+psnPrefix = '{}{}'.format(args.name, args.modeEquation)
+psnSuffix = 'a-{}_e-{}_n-{}_b-{}_a-{}_p-{}_t-{}' \
+            .format(args.alpha, args.nEpoch, nSample, \
+            batchSize, args.activation, args.patience, int(args.tfdata))
 modelName = '{}_{}'.format(psnPrefix, psnSuffix)
 
 # Plot model
@@ -274,22 +214,16 @@ if args.restart:
 
 # Split samples into training, validation
 if usingTfData:
-  psnData   = PoissonDataset(fname=fname, nChannel=nChannel, shape=shape)
+  psnData   = PD.PoissonDataset(fname=fname, samples=nSample, nChannel=nChannel, shape=shape, mode=args.modeEquation)
   psnData   = psnData.shuffle(buffer_size=2048)
   trainData = psnData.take(count=nTrain)
   validData = psnData.skip(count=nTrain)
 
-#  numDatasets = 2
-#  trainDatasetParallel = tf.data.Dataset.range(numDatasets) \
-#      .interleave(lambda _: trainData, num_parallel_calls=tf.data.AUTOTUNE)
   trainDataset = trainData \
       .batch(batch_size=batchSize) \
       .cache() \
       .prefetch(buffer_size=tf.data.AUTOTUNE) \
       .repeat()
-
-#  validDatasetParallel = tf.data.Dataset.range(numDatasets) \
-#      .interleave(lambda _: validData, num_parallel_calls=tf.data.AUTOTUNE)
   validDataset = validData \
       .batch(batch_size=batchSize) \
       .cache() \
@@ -299,8 +233,8 @@ else:
   # Split into training / validation sets
   xTrain    = bcAF[:nTrain, ...]
   yTrain    = p[:nTrain, ...]
-  xValidate = bcAF[nTrain:nTrain+nValid, ...]
-  yValidate = p[nTrain:nTrain+nValid, ...]
+  xValidate = bcAF[nTrain:, ...]
+  yValidate = p[nTrain:, ...]
 
 # Training
 if args.train:
@@ -367,7 +301,7 @@ if nPred > 0:
 
   # Plots
   fig = plt.figure(figsize=(21, 1+2*nPred), dpi=120, constrained_layout=True)
-  fig.suptitle('{}: bc, a, f, p, phat'.format(eqName), fontsize=16)
+  fig.suptitle('PSN {}: bc, a, f, p, phat'.format(args.modeEquation), fontsize=16)
 
   # Min, max values, needed for colobar range
   minBc, maxBc     = np.min(bc[i, ...]), np.max(bc[i, ...])
@@ -418,5 +352,5 @@ if nPred > 0:
     plt.text(0.2, 0.5, 'RMSE: %.4f' % rmseLst[i])
     plt.text(0.2, 0.7, 'MAPE: %.4f' % mapeLst[i])
 
-  plt.savefig('{}_{}_ps-{}_bc_a_f_p_phat.png'.format(args.name, eqName, args.predictionSource), bbox_inches='tight')
+  plt.savefig('{}{}_ps-{}_bc_a_f_p_phat.png'.format(args.name, args.modeEquation, args.predictionSource), bbox_inches='tight')
 
