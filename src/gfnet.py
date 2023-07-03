@@ -158,10 +158,6 @@ batchSize = args.batchsize
 print('{} samples in training, {} in validation'.format(nTrain, nValid))
 fname = '../data/psn_{}_{}.h5'.format(shape[0], nSample)
 
-# Load external data
-if not usingTfData:
-  bcAF, p = PD.getBcAFP(fname, nSample, shape, args.modeEquation)
-
 # Create model
 #with PM.strategy.scope():
 psnNet = PM.PsnCnn(nCell=shape, operators=args.architecture, \
@@ -171,9 +167,9 @@ psnNet.compile(optimizer=keras.optimizers.Adam(learning_rate=args.lr0))
 
 # Create unique name based on args describing model
 psnPrefix = '{}{}'.format(args.name, args.modeEquation)
-psnSuffix = 'a-{}_e-{}_n-{}_b-{}_a-{}_p-{}_t-{}' \
+psnSuffix = 'a-{}_e-{}_n-{}_b-{}_a-{}_p-{}' \
             .format(args.alpha, args.nEpoch, nSample, \
-            batchSize, args.activation, args.patience, int(args.tfdata))
+            batchSize, args.activation, args.patience)
 modelName = '{}_{}'.format(psnPrefix, psnSuffix)
 
 # Plot model
@@ -230,6 +226,7 @@ if usingTfData:
       .prefetch(buffer_size=tf.data.AUTOTUNE) \
       .repeat()
 else:
+  bcAF, p = PD.getBcAFP(fname, nSample, shape, args.modeEquation)
   # Split into training / validation sets
   xTrain    = bcAF[:nTrain, ...]
   yTrain    = p[:nTrain, ...]
@@ -289,8 +286,11 @@ if nPred > 0:
   elif args.predictionSource == 2: # Predict on test data
     sP = nTrain + nValid
   eP = sP + nPred
-  samples = bcAF[sP:eP, ...]
-  phat = psnNet.predict(samples)
+
+  if usingTfData:
+    phat = psnNet.predict(validDataset.take(count=nPred)) # Take from valid set for now
+  else:
+    phat = psnNet.predict(bcAF[sP:eP, ...])
 
   # Get statistics per frame
   maeLst, rmseLst, mapeLst = [], [], []
@@ -304,10 +304,10 @@ if nPred > 0:
   fig.suptitle('PSN {}: bc, a, f, p, phat'.format(args.modeEquation), fontsize=16)
 
   # Min, max values, needed for colobar range
-  minBc, maxBc     = np.min(bc[i, ...]), np.max(bc[i, ...])
-  minA, maxA       = np.min(a[i, ...]), np.max(a[i, ...])
-  minF, maxF       = np.min(f[i, ...]), np.max(f[i, ...])
-  minP, maxP       = np.min(p[i, ...]), np.max(p[i, ...])
+  minBc, maxBc     = np.min(bcAF[i,:,:,0]), np.max(bcAF[i,:,:,0])
+  minA, maxA       = np.min(bcAF[i,:,:,1]), np.max(bcAF[i,:,:,1])
+  minF, maxF       = np.min(bcAF[i,:,:,2]), np.max(bcAF[i,:,:,2])
+  minP, maxP       = np.min(p[i,:,:,0]), np.max(p[i,:,:,0])
   minPHat, maxPHat = np.min(phat[i, ...]), np.max(phat[i, ...])
 
   nCols = 7
@@ -317,22 +317,22 @@ if nPred > 0:
     ax = fig.add_subplot(nPred, nCols, cnt+1)
     plt.ylabel("Frame {}".format(sP+i))
     plt.title('bc')
-    plt.imshow(bc[i, ...], vmin=minBc, vmax=maxBc, origin='lower')
+    plt.imshow(bcAF[i,:,:,0], vmin=minBc, vmax=maxBc, origin='lower')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+2)
     plt.title('a')
-    plt.imshow(a[i, ...], vmin=minA, vmax=maxA, origin='lower')
+    plt.imshow(bcAF[i,:,:,1], vmin=minA, vmax=maxA, origin='lower')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+3)
     plt.title('f')
-    plt.imshow(f[i, ...], vmin=minF, vmax=maxF, origin='lower')
+    plt.imshow(bcAF[i,:,:,2], vmin=minF, vmax=maxF, origin='lower')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+4)
     plt.title('p')
-    plt.imshow(p[i, ...], vmin=minP, vmax=maxP, origin='lower')
+    plt.imshow(p[i,:,:,0], vmin=minP, vmax=maxP, origin='lower')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+5)
