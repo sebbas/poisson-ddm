@@ -20,6 +20,16 @@ def getBcAFP(fname, samples, shape, mode):
 
   assert nSample == aData.shape[0] and nSample == fData.shape[0] and ppData.shape[0]
 
+  # Construct solution p
+  if mode == 0: # Homogeneous Poisson
+    p = np.expand_dims(ppData, axis=-1)
+  elif mode == 1: # Inhomogeneous Laplace
+    p = np.expand_dims(plData, axis=-1)
+    f *= 0.0 # For now, just set f to 0 and keep in channels
+  elif mode == 2: # Inhomogeneous Poisson (i.e. Homogeneous Poisson + Inhomogeneous Laplace)
+    pplData = ppData + plData
+    p = np.expand_dims(pplData, axis=-1)
+
   # Construct solution, bc, a, and f arrays for Poisson / Laplace equation
   a  = np.expand_dims(aData, axis=-1)
   f  = np.expand_dims(fData, axis=-1)
@@ -39,28 +49,20 @@ def getBcAFP(fname, samples, shape, mode):
   # Fill boundary with Dirichlet bc values (data from Laplace solve, ie f=0)
   if mode == 1 or mode == 2: # Inhomogeneous Poisson / Laplace
     nx, ny = shape
-    bc[:,  0,  :, 0] += pBcData[:,:nx]                    # i- boundary
-    bc[:,  :, -1, 0] += pBcData[:,nx:nx+ny]               # j+ boundary
-    bc[:, -1,  :, 0] += np.flip(pBcData[:,nx+ny:2*nx+ny]) # i+ boundary
-    bc[:,  :,  0, 0] += np.flip(pBcData[:,2*nx+ny:])      # j- boundary
+    bc[:,  0,  :, 0] = p[:,  0,  :, 0] # i- boundary
+    bc[:,  :, -1, 0] = p[:,  :, -1, 0] # j+ boundary
+    bc[:, -1,  :, 0] = p[:, -1,  :, 0] # i+ boundary
+    bc[:,  :,  0, 0] = p[:,  :,  0, 0] # j- boundary
     # Average bc values to counterbalance overlap in corner cells
-    bcCnt = np.ones_like(bc)
-    corners = [[0,0], [nx-1,0], [0,ny-1], [nx-1,ny-1]]
-    for x,y in corners:
-      bcCnt[:,x,y,0] += 1
-    bc /= bcCnt
+    if 0:
+      bcCnt = np.ones_like(bc)
+      corners = [[0,0], [nx-1,0], [0,ny-1], [nx-1,ny-1]]
+      for x,y in corners:
+        bcCnt[:,x,y,0] += 1
+      bc /= bcCnt
 
   # Combine bc, a, f along channel dim
   bcAF = np.concatenate((bc, a, f), axis=-1)
-
-  if mode == 0: # Homogeneous Poisson
-    p = np.expand_dims(ppData, axis=-1)
-  elif mode == 1: # Inhomogeneous Laplace
-    p = np.expand_dims(plData, axis=-1)
-    f *= 0.0 # For now, just set f to 0 and keep in channels
-  elif mode == 2: # Inhomogeneous Poisson (i.e. Homogeneous Poisson + Inhomogeneous Laplace)
-    pplData = ppData + plData
-    p = np.expand_dims(pplData, axis=-1)
 
   return bcAF, p
 
