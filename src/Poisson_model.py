@@ -205,13 +205,13 @@ class PsnCnn(keras.Model):
     return nextLayer
 
 
-  def _compute_data_loss(self, pp, ppPred):
-    return keras.losses.mean_squared_error(pp, ppPred)
+  def _compute_data_loss(self, true, pred):
+    return keras.losses.mean_squared_error(true, pred)
 
 
-  def _compute_pde_loss(self, bcAF, ppPred):
+  def _compute_pde_loss(self, bcAF, pPred):
     # Extract channels
-    p = ppPred[:,:,:,0]
+    p = pPred[:,:,:,0]
     a = bcAF[:,:,:,1]
     f = bcAF[:,:,:,2]
 
@@ -247,14 +247,14 @@ class PsnCnn(keras.Model):
 
   def train_step(self, data):
     bcAF = data[0]
-    pp = data[1]
+    p = data[1]
 
     with tf.GradientTape() as tape:
-      ppPred = self(bcAF, training=True)
+      pPred = self(bcAF, training=True)
       # Compute data loss
-      dataLoss = self._compute_data_loss(pp, ppPred)
+      dataLoss = self._compute_data_loss(p, pPred)
       # Compute pde loss
-      pdeLoss = self._compute_pde_loss(bcAF, ppPred)
+      pdeLoss = self._compute_pde_loss(bcAF, pPred)
       # Compute total loss
       loss = dataLoss + self.alpha * pdeLoss
 
@@ -267,7 +267,7 @@ class PsnCnn(keras.Model):
     self.trainMetrics['loss'].update_state(loss)
     self.trainMetrics['data'].update_state(dataLoss)
     self.trainMetrics['pde'].update_state(pdeLoss)
-    self.trainMetrics['mae'].update_state(pp, ppPred)
+    self.trainMetrics['mae'].update_state(p, pPred)
 
     # Return metrics in statistics dictionary
     for key in self.trainMetrics:
@@ -277,13 +277,13 @@ class PsnCnn(keras.Model):
 
   def test_step(self, data):
     bcAF = data[0]
-    pp = data[1]
+    p = data[1]
 
-    ppPred = self(bcAF, training=False)
+    pPred = self(bcAF, training=False)
     # Compute data loss
-    dataLoss = self._compute_data_loss(pp, ppPred)
+    dataLoss = self._compute_data_loss(p, pPred)
     # Compute pde loss
-    pdeLoss = self._compute_pde_loss(bcAF, ppPred)
+    pdeLoss = self._compute_pde_loss(bcAF, pPred)
     # Compute total loss
     loss = dataLoss + self.alpha * pdeLoss
 
@@ -291,7 +291,7 @@ class PsnCnn(keras.Model):
     self.validMetrics['loss'].update_state(loss)
     self.validMetrics['data'].update_state(dataLoss)
     self.validMetrics['pde'].update_state(pdeLoss)
-    self.validMetrics['mae'].update_state(pp, ppPred)
+    self.validMetrics['mae'].update_state(p, pPred)
 
     # Return metrics in statistics dictionary
     for key in self.trainMetrics:
