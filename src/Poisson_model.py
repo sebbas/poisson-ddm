@@ -142,6 +142,12 @@ class PsnCnn(keras.Model):
       elif layerName == 'batchnorm':
         self.mlp.append( KL.BatchNormalization() )
 
+      elif layerName == 'leakyrelu':
+        self.mlp.append( KL.LeakyReLU() )
+
+      elif layerName == 'relu':
+        self.mlp.append( KL.ReLU() )
+
       elif layerName == 'concat':
         self.mlp.append( KL.Concatenate() )
 
@@ -199,7 +205,10 @@ class PsnCnn(keras.Model):
         nextLayer = curLayer([layers[p1], layers[p2]])
       else:
         prevLayer = layers[-1]
-        nextLayer = curLayer(prevLayer)
+        if layerName == 'batchnorm':
+          nextLayer = curLayer(prevLayer, training=training)
+        else:
+          nextLayer = curLayer(prevLayer)
 
       layers.append(nextLayer)
     return nextLayer
