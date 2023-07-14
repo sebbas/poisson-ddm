@@ -188,8 +188,8 @@ class PsnCnn(keras.Model):
       return layerName, layerArgs
 
 
-  def call(self, inputs, training=False):
-    layers = [self.inputLayer(inputs)]
+  def call(self, inputs, training=False, withInputLayer=True):
+    layers = [self.inputLayer(inputs)] if withInputLayer else [inputs]
 
     for i, (curLayer, op) in enumerate(zip(self.mlp, self.operators[1:])):
       layerName, layerArgs = self._getLayerName(op)
@@ -313,10 +313,8 @@ class PsnCnn(keras.Model):
 
 
   def build_graph(self):
-    i = self.inputLayer(keras.Input(shape=self.inputShape, batch_size=self.batchSize))
-    x = i
-    for layer in self.mlp:
-      x = layer(x)
-    return keras.Model(inputs=[i], outputs=x)
-
+    input = keras.Input(shape=self.inputShape, batch_size=self.batchSize)
+    inLayer = self.inputLayer(input)
+    outLayers = self.call(inLayer, training=False, withInputLayer=False)
+    return keras.Model(inputs=inLayer, outputs=outLayers)
 
