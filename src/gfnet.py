@@ -222,7 +222,7 @@ usingTfData = args.tfdata
 if usingTfData: print('Enabled tf.data optimization')
 
 # Traing and validation split
-nTrain = int(nSample * 0.8)
+nTrain = int(nSample * 0.9)
 nValid = nSample - nTrain
 
 batchSize = args.batchsize
