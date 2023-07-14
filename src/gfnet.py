@@ -5,7 +5,6 @@ import numpy as np
 from tensorflow import keras
 from datetime import datetime
 import argparse
-import matplotlib.pyplot as plt
 import tensorflow as tf
 import time
 from PIL import ImageFont
@@ -346,67 +345,8 @@ if nPred > 0:
   if usingTfData:
     phat = psnNet.predict(validDataset.take(count=nPred)) # Take from valid set for now
   else:
-    phat = psnNet.predict(bcAF[sP:eP, ...])
+    phat = psnNet.predict(bcAF[sP:sP+nPred, ...])
 
-  # Get statistics per frame
-  maeLst, rmseLst, mapeLst = [], [], []
-  for i in range(nPred):
-    maeLst.append(UT.mae(p[i,:,:,0], phat[i,:,:,0]))
-    rmseLst.append(UT.rmse(p[i,:,:,0], phat[i,:,:,0]))
-    mapeLst.append(UT.mape(p[i,:,:,0], phat[i,:,:,0]))
-
-  # Plots
-  fig = plt.figure(figsize=(21, 1+2*nPred), dpi=120, constrained_layout=True)
-  fig.suptitle('PSN {}: bc, a, f, p, phat'.format(args.modeEquation), fontsize=16)
-
-  # Min, max values, needed for colobar range
-  minBc, maxBc     = np.min(bcAF[i,:,:,0]), np.max(bcAF[i,:,:,0])
-  minA, maxA       = np.min(bcAF[i,:,:,1]), np.max(bcAF[i,:,:,1])
-  minF, maxF       = np.min(bcAF[i,:,:,2]), np.max(bcAF[i,:,:,2])
-  minP, maxP       = np.min(p[i,:,:,0]), np.max(p[i,:,:,0])
-  minPHat, maxPHat = np.min(phat[i, ...]), np.max(phat[i, ...])
-
-  nCols = 7
-  for i in range(nPred):
-    cnt = i*nCols
-
-    ax = fig.add_subplot(nPred, nCols, cnt+1)
-    plt.ylabel("Frame {}".format(sP+i))
-    plt.title('bc')
-    plt.imshow(bcAF[i,:,:,0], vmin=minBc, vmax=maxBc, origin='lower')
-    plt.colorbar()
-
-    ax = fig.add_subplot(nPred, nCols, cnt+2)
-    plt.title('a')
-    plt.imshow(bcAF[i,:,:,1], vmin=minA, vmax=maxA, origin='lower')
-    plt.colorbar()
-
-    ax = fig.add_subplot(nPred, nCols, cnt+3)
-    plt.title('f')
-    plt.imshow(bcAF[i,:,:,2], vmin=minF, vmax=maxF, origin='lower')
-    plt.colorbar()
-
-    ax = fig.add_subplot(nPred, nCols, cnt+4)
-    plt.title('p')
-    plt.imshow(p[i,:,:,0], vmin=minP, vmax=maxP, origin='lower')
-    plt.colorbar()
-
-    ax = fig.add_subplot(nPred, nCols, cnt+5)
-    plt.title('phat')
-    plt.imshow(phat[i, ...], vmin=minP, vmax=maxP, origin='lower')
-    plt.colorbar()
-
-    ax = fig.add_subplot(nPred, nCols, cnt+6)
-    plt.title('phat (own colorbar)')
-    plt.imshow(phat[i, ...], vmin=minPHat, vmax=maxPHat, origin='lower')
-    plt.colorbar()
-
-    ax = fig.add_subplot(nPred, nCols, cnt+7)
-    ax.axis('off')
-    plt.title('Stats')
-    plt.text(0.2, 0.3, 'MAE: %.4f' % maeLst[i])
-    plt.text(0.2, 0.5, 'RMSE: %.4f' % rmseLst[i])
-    plt.text(0.2, 0.7, 'MAPE: %.4f' % mapeLst[i])
-
-  plt.savefig('{}{}_ps-{}_bc_a_f_p_phat.png'.format(args.name, args.modeEquation, args.predictionSource), bbox_inches='tight')
+  UT.plotPredictions(sP, nPred, bcAF, p, phat, name, eqId, archId)
+  UT.plotLosses(modelName, 0, 500, name, eqId, archId)
 
