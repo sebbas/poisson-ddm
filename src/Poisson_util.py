@@ -100,7 +100,7 @@ def plotPredictions(sP, nPred, bcAF, p, phat, name, mode, arch):
     plt.text(0.2, 0.5, 'RMSE: %.4f' % rmseLst[i])
     plt.text(0.2, 0.3, 'MAE: %.4f' % maeLst[i])
 
-  plt.savefig('{}_predictions_eq-{}_arch-{}.png'.format(name, mode, arch), bbox_inches='tight')
+  plt.savefig('../img/{}_predictions_eq-{}_arch-{}.png'.format(name, mode, arch), bbox_inches='tight')
   plt.close(fig)
 
 
@@ -131,7 +131,21 @@ def plotLosses(model, epochStart, epochEnd, name, mode, arch, plotLr=False):
       legend.append('lr')
     plt.legend(legend, loc='upper right')
 
-  fig.savefig('{}_losses_eq-{}_arch-{}_s-{}_e-{}.png'.format(name, mode, arch, epochStart, epochEnd), bbox_inches='tight')
+  fig.savefig('../img/{}_losses_eq-{}_arch-{}_s-{}_e-{}.png'.format(name, mode, arch, epochStart, epochEnd), bbox_inches='tight')
   plt.close(fig)
 
 
+def plotModel(net, name):
+  import visualkeras
+  from PIL import ImageFont
+
+  model = net.build_graph()
+  model.summary()
+  # Plot with keras
+  keras.utils.plot_model(model, dpi=96, show_shapes=True, show_layer_names=True,
+                         to_file='../img/{}_graph.png'.format(name),
+                         expand_nested=False)
+  # Also plot model architecture with visualkeras
+  font = ImageFont.truetype('Arial Unicode.ttf', 200)
+  visualkeras.layered_view(model, to_file='../img/{}_visualkeras.png'.format(name),
+                           legend=True, font=font, spacing=80, scale_xy=180, max_xy=10000, scale_z=0.5, draw_volume=1)

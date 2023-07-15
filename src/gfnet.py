@@ -7,7 +7,6 @@ from datetime import datetime
 import argparse
 import tensorflow as tf
 import time
-from PIL import ImageFont
 
 import tensorflow.keras.callbacks as KC
 
@@ -41,7 +40,7 @@ parser.add_argument('-tf', '--tfdata', default=False, action='store_true', \
                     help='use tf.data optimization')
 parser.add_argument('-n', '--nSample', type=int, default=40000, \
                     help = "number of samples")
-parser.add_argument('-eq', '--equation', type=int, default=0, \
+parser.add_argument('-eq', '--equation', type=int, default=2, \
                     help = "0: Homogeneous Poisson, 1: Inhomogeneous Laplace, 2: Inhomogeneous Poisson")
 parser.add_argument('-t', '--train', type=int, default=1, \
                     help = "enable / disable training")
@@ -60,7 +59,7 @@ parser.add_argument('-pa', '--patience', type=int, default=200, \
                     help='patience for reducing learning rate')
 parser.add_argument('-lr',  '--restartLr', type=float, default=None,
                      help='learning rate to restart training')
-parser.add_argument('-l', '--architecture', type=int, default=0, \
+parser.add_argument('-l', '--architecture', type=int, default=2, \
                     help='architecture id (0: simplified U-Net, 1: Full U-Net + dropout, 2: Full U-Net + batchnorm)')
 
 args = parser.parse_args()
@@ -225,7 +224,7 @@ if usingTfData: print('Enabled tf.data optimization')
 nTrain = int(nSample * 0.9)
 nValid = nSample - nTrain
 
-batchSize = args.batchsize
+batchsize = args.batchsize
 print('{} samples in training, {} in validation'.format(nTrain, nValid))
 fname = '../data/psn_{}_{}.h5'.format(shape[0], nSample)
 
@@ -237,23 +236,13 @@ psnNet.compile(optimizer=keras.optimizers.Adam(learning_rate=args.lr0))#, run_ea
 # Create unique name based on args describing model
 psnPrefix = '{}'.format(name, eqId)
 psnSuffix = 'a-{}_b-{}_a-{}_p-{}' \
-            .format(args.alpha, batchSize, args.activation, args.patience)
+            .format(args.alpha, batchsize, args.activation, args.patience)
 modelName = '{}_{}'.format(psnPrefix, psnSuffix)
 
 # Plot model
 if args.visualize:
-  import visualkeras
-  psnNet.build(input_shape=(args.batchsize, shape[1], shape[0], nChannel))
-  model = psnNet.build_graph()
-  model.summary()
-  # Plot with keras
-  keras.utils.plot_model(model, dpi=96, show_shapes=True, show_layer_names=True,
-                         to_file='{}_modelplot_{}.png'.format(psnPrefix, psnSuffix),
-                         expand_nested=False)
-  # Also plot model architecture with visualkeras
-  font = ImageFont.truetype('Arial Unicode.ttf', 34)
-  visualkeras.layered_view(model, to_file='{}_visualkeras_{}.png'.format(psnPrefix, psnSuffix),
-                           legend=True, font=font, spacing=80, scale_xy=20, scale_z=1)
+  psnNet.build(input_shape=(batchsize, shape[1], shape[0], nChannel))
+  UT.plotModel(psnNet, name)
 
 # Callbacks
 timeHistCB   = UT.TimeHistory()
@@ -278,12 +267,12 @@ if usingTfData:
   validData = psnData.skip(count=nTrain)
 
   trainDataset = trainData \
-      .batch(batch_size=batchSize) \
+      .batch(batch_size=batchsize) \
       .cache() \
       .prefetch(buffer_size=tf.data.AUTOTUNE) \
       .repeat()
   validDataset = validData \
-      .batch(batch_size=batchSize) \
+      .batch(batch_size=batchsize) \
       .cache() \
       .prefetch(buffer_size=tf.data.AUTOTUNE) \
       .repeat()
@@ -303,22 +292,22 @@ if args.train:
         trainDataset,
         initial_epoch=args.initTrain,
         epochs=nEpoch,
-        steps_per_epoch=nTrain//batchSize,
+        steps_per_epoch=nTrain//batchsize,
         callbacks=psnCBs,
         validation_data=validDataset,
-        validation_steps=nValid//batchSize,
+        validation_steps=nValid//batchsize,
         verbose=True)
   else:
     psnNet.fit(
         x=xTrain,
         y=yTrain,
-        batch_size=batchSize,
+        batch_size=batchsize,
         initial_epoch=args.initTrain,
         epochs=nEpoch,
-        steps_per_epoch=nTrain//batchSize,
+        steps_per_epoch=nTrain//batchsize,
         callbacks=psnCBs,
         validation_data=(xValidate, yValidate),
-        validation_steps=nValid//batchSize,
+        validation_steps=nValid//batchsize,
         verbose=True)
   endTrain = time.perf_counter()
   print("fit() execution time in secs:", endTrain - startTrain)
