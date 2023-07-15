@@ -226,7 +226,7 @@ nValid = nSample - nTrain
 
 batchsize = args.batchsize
 print('{} samples in training, {} in validation'.format(nTrain, nValid))
-fname = '../data/psn_{}_{}.h5'.format(shape[0], nSample)
+fname = args.file
 
 # Create model
 #with PM.strategy.scope():
