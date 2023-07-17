@@ -27,7 +27,7 @@ parser.add_argument('-a', '--activation', type=str, default='relu', \
                     help='activation function used in models layers')
 
 # Epochs, checkpoints
-parser.add_argument('-f', '--file', default='../data/psn_32_2000.h5', help='data file')
+parser.add_argument('-f', '--file', default='../data/psn_32_20000.h5', help='data file')
 parser.add_argument('-name', '--name', default='psnNet', help='model name prefix')
 parser.add_argument('-ie', '--initTrain', type=int, default=0, \
                     help='initial train epochs')
@@ -35,10 +35,10 @@ parser.add_argument('-e', '--nEpoch', default=2500, type=int, help='epochs')
 parser.add_argument('-restart', '--restart', default=False, action='store_true',\
                     help='restart from checkpoint')
 parser.add_argument('-ckpnt', '--checkpoint', default=None, help='checkpoint name')
-parser.add_argument('-b', '--batchsize', default=200, type=int, help='batch size')
+parser.add_argument('-b', '--batchsize', default=64, type=int, help='batch size')
 parser.add_argument('-tf', '--tfdata', default=False, action='store_true', \
                     help='use tf.data optimization')
-parser.add_argument('-n', '--nSample', type=int, default=40000, \
+parser.add_argument('-n', '--nSample', type=int, default=20000, \
                     help = "number of samples")
 parser.add_argument('-eq', '--equation', type=int, default=2, \
                     help = "0: Homogeneous Poisson, 1: Inhomogeneous Laplace, 2: Inhomogeneous Poisson")
@@ -234,15 +234,12 @@ psnNet = PM.PsnCnn(nCell=shape, operators=architecture, act=activation, last_act
 psnNet.compile(optimizer=keras.optimizers.Adam(learning_rate=args.lr0))#, run_eagerly=1)
 
 # Create unique name based on args describing model
-psnPrefix = '{}'.format(name, eqId)
-psnSuffix = 'a-{}_b-{}_a-{}_p-{}' \
-            .format(args.alpha, batchsize, args.activation, args.patience)
-modelName = '{}_{}'.format(psnPrefix, psnSuffix)
+modelName = UT.getFileName('model', name, eqId, archId)
 
 # Plot model
 if args.visualize:
   psnNet.build(input_shape=(batchsize, shape[1], shape[0], nChannel))
-  UT.plotModel(psnNet, name)
+  UT.plotModel(psnNet, name, eqId, archId)
 
 # Callbacks
 timeHistCB   = UT.TimeHistory()
@@ -250,7 +247,7 @@ tboardCB     = KC.TensorBoard(log_dir=os.path.join(args.tboardDir, datetime.now(
 checkpointCB = KC.ModelCheckpoint(filepath='./' + modelName + '/checkpoint', monitor='val_loss', save_best_only=True, save_weights_only=True, verbose=1)
 reduceLrCB   = KC.ReduceLROnPlateau(monitor='loss', min_delta=0.01, patience=args.patience, min_lr=args.lrmin)
 csvLogCB     = keras.callbacks.CSVLogger(modelName + '.log', append=True)
-psnCBs = [timeHistCB, tboardCB, checkpointCB, reduceLrCB, csvLogCB]
+psnCBs       = [timeHistCB, tboardCB, checkpointCB, reduceLrCB, csvLogCB]
 
 if args.restart:
   print('Restoring model {}'.format(modelName))
@@ -310,16 +307,9 @@ if args.train:
         validation_steps=nValid//batchsize,
         verbose=True)
   endTrain = time.perf_counter()
-  print("fit() execution time in secs:", endTrain - startTrain)
+  print('fit() execution time in secs: {}'.format(endTrain - startTrain))
 
-  # Evaluate callbacks
-  avgTimeEpoch = sum(timeHistCB.times) / len(timeHistCB.times)
-  print('{} samples ==> Average time per epoch: {}'.format(nSample, avgTimeEpoch))
-
-  with open('{}_epochtimes_{}.txt'.format(psnPrefix, psnSuffix), 'w') as efile:
-    for t in timeHistCB.times:
-      efile.write(f'{t}\n')
-    efile.write(f'Average: {avgTimeEpoch}\n')
+  UT.writeEpochTimes(name, eqId, archId, timeHistCB)
 
 # Predictions
 if nPred > 0:

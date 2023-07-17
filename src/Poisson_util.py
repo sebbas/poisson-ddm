@@ -34,7 +34,11 @@ def _getFigureTitle(eqId, archId):
   return 'Equation: {}, Architecture: {}'.format(equationStrs[eqId], architectureStrs[archId])
 
 
-def plotPredictions(sP, nPred, bcAF, p, phat, name, mode, arch):
+def getFileName(type, name, eqId, archId):
+  return '{}_{}_eq-{}_arch-{}'.format(name, type, eqId, archId)
+
+
+def plotPredictions(sP, nPred, bcAF, p, phat, name, eqId, archId):
   eP = sP + nPred
   errorP = np.abs(p[sP:eP,:,:,0] - phat[0:nPred,:,:,0])
 
@@ -47,7 +51,7 @@ def plotPredictions(sP, nPred, bcAF, p, phat, name, mode, arch):
 
   # Plots
   fig = plt.figure(figsize=(21, 1+2*nPred), dpi=120, constrained_layout=True)
-  fig.suptitle(_getFigureTitle(mode, arch), fontsize=16)
+  fig.suptitle(_getFigureTitle(eqId, archId), fontsize=16)
 
   # Min, max values, needed for colobar range
   minBc, maxBc     = np.min(bcAF[sP:eP,:,:,0]), np.max(bcAF[sP:eP,:,:,0])
@@ -100,11 +104,12 @@ def plotPredictions(sP, nPred, bcAF, p, phat, name, mode, arch):
     plt.text(0.2, 0.5, 'RMSE: %.4f' % rmseLst[i])
     plt.text(0.2, 0.3, 'MAE: %.4f' % maeLst[i])
 
-  plt.savefig('../img/{}_predictions_eq-{}_arch-{}.png'.format(name, mode, arch), bbox_inches='tight')
+  fname = getFileName('predictions', name, eqId, archId)
+  plt.savefig('../img/{}.png'.format(fname), bbox_inches='tight')
   plt.close(fig)
 
 
-def plotLosses(model, epochStart, epochEnd, name, mode, arch, plotLr=False):
+def plotLosses(model, epochStart, epochEnd, name, eqId, archId, plotLr=False):
   history = pd.read_csv(model + '.log', sep = ',', engine='python')
   hist    = history[epochStart:epochEnd]
 
@@ -113,7 +118,7 @@ def plotLosses(model, epochStart, epochEnd, name, mode, arch, plotLr=False):
 
   nCols, nRows = 2, 2
   fig = plt.figure(figsize=(8*nCols, 4*nRows), dpi=120)
-  fig.suptitle(_getFigureTitle(mode, arch), fontsize=16)
+  fig.suptitle(_getFigureTitle(eqId, archId), fontsize=16)
   fig.subplots_adjust(hspace=.5)
 
   for i, names in enumerate(metrics):
@@ -131,21 +136,36 @@ def plotLosses(model, epochStart, epochEnd, name, mode, arch, plotLr=False):
       legend.append('lr')
     plt.legend(legend, loc='upper right')
 
-  fig.savefig('../img/{}_losses_eq-{}_arch-{}_s-{}_e-{}.png'.format(name, mode, arch, epochStart, epochEnd), bbox_inches='tight')
+  fname = getFileName('losses', name, eqId, archId)
+  plt.savefig('../img/{}.png'.format(fname), bbox_inches='tight')
   plt.close(fig)
 
 
-def plotModel(net, name):
+def plotModel(net, name, eqId, archId):
   import visualkeras
   from PIL import ImageFont
 
   model = net.build_graph()
   model.summary()
-  # Plot with keras
+  # Plot model graph with keras
+  fname = getFileName('graph', name, eqId, archId)
   keras.utils.plot_model(model, dpi=96, show_shapes=True, show_layer_names=True,
-                         to_file='../img/{}_graph.png'.format(name),
-                         expand_nested=False)
-  # Also plot model architecture with visualkeras
+                         to_file='../img/{}.png'.format(fname), expand_nested=False)
+
+  # Plot model architecture with visualkeras
   font = ImageFont.truetype('Arial Unicode.ttf', 200)
-  visualkeras.layered_view(model, to_file='../img/{}_visualkeras.png'.format(name),
+  fname = getFileName('layers', name, eqId, archId)
+  visualkeras.layered_view(model, to_file='../img/{}.png'.format(fname),
                            legend=True, font=font, spacing=80, scale_xy=180, max_xy=10000, scale_z=0.5, draw_volume=1)
+
+
+def writeEpochTimes(name, eqId, archId, timeHistCB):
+  avgTimeEpoch = sum(timeHistCB.times) / len(timeHistCB.times)
+  print('Average time per epoch: {}'.format(avgTimeEpoch))
+
+  fname = getFileName('epochtimes', name, eqId, archId)
+  with open('{}.txt'.format(fname), 'w') as efile:
+    for t in timeHistCB.times:
+      efile.write(f'{t}\n')
+    efile.write(f'Average: {avgTimeEpoch}\n')
+
