@@ -19,7 +19,7 @@ Generates a `hdf5` dataset with 20.000 samples. One sample consists of 32x32 gri
 $$
 \begin{aligned}
 \nabla \cdot (a \nabla p(x,y)) &= f(x,y), \qquad (x,y) \in \Omega \\
-p(x,y) &= bc(x,y) \qquad (x,y), \in \partial\Omega
+p(x,y) &= bc(x,y), \qquad (x,y) \in \partial\Omega
 \end{aligned}
 $$
 
