@@ -40,6 +40,8 @@ parser.add_argument('-tf', '--tfdata', default=False, action='store_true', \
                     help='use tf.data optimization')
 parser.add_argument('-n', '--nSample', type=int, default=20000, \
                     help = "number of samples")
+parser.add_argument('-s', '--shape', type=int, default=32, \
+                    help = "size of sample")
 parser.add_argument('-eq', '--equation', type=int, default=2, \
                     help = "0: Homogeneous Poisson, 1: Inhomogeneous Laplace, 2: Inhomogeneous Poisson")
 parser.add_argument('-t', '--train', type=int, default=1, \
@@ -198,8 +200,7 @@ elif archId == 2:
                     'leakyrelu',                   # 66
                   'conv_3_1_1']                    # 67
 
-shape = (32, 32)
-nx, ny = shape
+shape = (args.shape, args.shape)
 nChannel = 3 # bc, a, f
 nDim = 2
 nEpoch = args.nEpoch

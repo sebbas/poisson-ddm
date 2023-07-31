@@ -9,10 +9,12 @@ parser.add_argument('-f', '--filePrefix', type=str, default="psn", \
                     help = "prefix of the data file's name")
 parser.add_argument('-n', '--nSample',    type=int, default=100, \
                     help = "number of samples")
+parser.add_argument('-s', '--shape', type=int, default=32, \
+                    help = "size of sample")
 
 args = parser.parse_args()
 
-nx, ny = 32,  32
+nx, ny = args.shape, args.shape
 lx, ly = 1.0, 1.0
 nSample= args.nSample
 assert lx/nx == ly/ny
