@@ -25,7 +25,7 @@ def getBcAFP(fname, samples, shape, mode):
     p = np.expand_dims(ppData, axis=-1)
   elif mode == 1: # Inhomogeneous Laplace
     p = np.expand_dims(plData, axis=-1)
-    f *= 0.0 # For now, just set f to 0 and keep in channels
+    fData *= 0.0 # For now, just set f to 0 and keep in channels
   elif mode == 2: # Inhomogeneous Poisson (i.e. Homogeneous Poisson + Inhomogeneous Laplace)
     pplData = ppData + plData
     p = np.expand_dims(pplData, axis=-1)
