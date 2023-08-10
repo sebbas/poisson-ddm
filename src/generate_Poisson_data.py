@@ -39,6 +39,8 @@ aData   = dFile.create_dataset('a',   (nSample, ny, nx),    compression='gzip',
 # right-hand-side f in the Poisson equation
 fData   = dFile.create_dataset('f',   (nSample, ny, nx),    compression='gzip',
             compression_opts=9, dtype='float64', chunks=True)
+aBcData = dFile.create_dataset('aBc', (nSample, 2*(ny+nx)), compression='gzip',
+            compression_opts=9, dtype='float64', chunks=True)
 
 # rhs, coefficients
 scaGen2D = ScalarGenerator2D((lx, ly), (nx, ny))
@@ -73,5 +75,6 @@ ppData[...]  = pp[...]
 aData[...]   = a[...]
 fData[...]   = f[...]
 pBcData[...] = pBc[...]
+aBcData[...] = aBc[...]
 
 dFile.close()
