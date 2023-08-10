@@ -11,7 +11,7 @@ conda activate psn
 ### Data generation
 
 ```
-python generate_Poisson_data.py -f ../data/psn -n 20000
+python generate_Poisson_data.py -f ../data/train -n 20000
 ```
 
 Generates a `hdf5` dataset with 20.000 samples. One sample consists of 32x32 grids for components `a` (coefficient), `f` (right-hand side), `bc` (boundary condition), and `p` (solution) of the variable coefficient Poisson equation:
@@ -26,10 +26,10 @@ $$
 ### Training
 
 ```
-python gfnet.py -n 20000 -e 500 -f ../data/psn_32_20000.h5 -b 64 -eq 2 -l 2
+python gfnet.py -n 20000 -e 500 -f ../data/train_32_20000.h5 -b 64 -eq 2 -l 2
 ```
 Trains the inhomogeneous Poisson equation with 20.000 samples (90/10 train/valid split) for 500 epochs with a batchsize of 64 samples.
-Alternatively, the inhomogeneous Laplace equation (`f=0`) or the homogeneous Poisson (`bc=0`) can be trained with options `-eq 1` and `-eq 0`
+Alternatively, the inhomogeneous Laplace equation (`f=0`) or the homogeneous Poisson (`bc=0`) can be trained with options `-eq 1` and `-eq 0`.
 
 ### Predictions
 
