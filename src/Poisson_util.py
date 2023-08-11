@@ -47,6 +47,87 @@ def getFileName(type, name, eqId, archId):
   return '{}_{}_eq-{}_arch-{}'.format(name, type, eqId, archId)
 
 
+def plotInput(sP, nPred, bcAF, p, phat, name, eqId, archId):
+  fig = plt.figure(figsize=(10, 2), dpi=600, constrained_layout=True)
+
+  eP = sP + nPred
+
+  # Min, max values, needed for colobar range
+  minBc, maxBc     = np.min(bcAF[sP:eP,:,:,0]), np.max(bcAF[sP:eP,:,:,0])
+  minA, maxA       = np.min(bcAF[sP:eP,:,:,1]), np.max(bcAF[sP:eP,:,:,1])
+  minF, maxF       = np.min(bcAF[sP:eP,:,:,2]), np.max(bcAF[sP:eP,:,:,2])
+  minP, maxP       = np.min(p[sP:eP,:,:,0]), np.max(p[sP:eP,:,:,0])
+
+  nRows = 1
+  nCols = 4
+  iInput = sP
+
+  ax = fig.add_subplot(nRows, nCols, 1)
+  plt.title('g')
+  plt.imshow(bcAF[iInput,:,:,0], vmin=minBc, vmax=maxBc, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  ax = fig.add_subplot(nRows, nCols, 2)
+  plt.title('a')
+  plt.imshow(bcAF[iInput,:,:,1], vmin=minA, vmax=maxA, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  ax = fig.add_subplot(nRows, nCols, 3)
+  plt.title('f')
+  plt.imshow(bcAF[iInput,:,:,2], vmin=minF, vmax=maxF, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  ax = fig.add_subplot(nRows, nCols, 4)
+  plt.title('p')
+  plt.imshow(p[iInput,:,:,0], vmin=-1, vmax=1, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  fname = getFileName('inputs', name, eqId, archId)
+  plt.savefig('../img/{}.png'.format(fname), bbox_inches='tight')
+  plt.close(fig)
+
+
+def plotSolution(sP, nPred, p, phat, name, eqId, archId):
+  fig = plt.figure(figsize=(10, 2), dpi=600, constrained_layout=True)
+
+  eP = sP + nPred
+  errorP = np.abs(p[sP:eP,:,:,0] - phat[0:nPred,:,:,0])
+
+  # Min, max values, needed for colobar range
+  minP, maxP       = np.min(p[sP:eP,:,:,0]), np.max(p[sP:eP,:,:,0])
+  minPErr, maxPErr = np.min(errorP[0:nPred,:,:]), np.max(errorP[0:nPred,:,:])
+
+  nRows = 1
+  nCols = 4
+  iInput = sP
+
+  ax = fig.add_subplot(nPred, nCols, 1)
+  plt.title('p')
+  plt.imshow(p[iInput,:,:,0], vmin=-1, vmax=1, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  ax = fig.add_subplot(nPred, nCols, 2)
+  plt.title('phat')
+  plt.imshow(phat[0,:,:,0], vmin=-1, vmax=1, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  ax = fig.add_subplot(nPred, nCols, 3)
+  plt.title('abs(p-phat)')
+  plt.imshow(errorP[0,:,:], vmin=0, vmax=0.1, origin='lower', cmap='jet')
+  plt.colorbar()
+
+  ax = fig.add_subplot(nPred, nCols, 4)
+  ax.axis('off')
+  plt.title('Stats')
+  plt.text(0.2, 0.7, 'MAPE: %.4f %%' % mape(p[sP,:,:,0], phat[0,:,:,0]))
+  plt.text(0.2, 0.5, 'RMSE: %.4f' % rmse(p[sP,:,:,0], phat[0,:,:,0]))
+  plt.text(0.2, 0.3, 'MAE: %.4f' % mae(p[sP,:,:,0], phat[0,:,:,0]))
+
+  fname = getFileName('solutions', name, eqId, archId)
+  plt.savefig('../img/{}.png'.format(fname), bbox_inches='tight')
+  plt.close(fig)
+
+
 def plotPredictions(sP, nPred, bcAF, p, phat, name, eqId, archId):
   eP = sP + nPred
   errorP = np.abs(p[sP:eP,:,:,0] - phat[0:nPred,:,:,0])
@@ -59,8 +140,7 @@ def plotPredictions(sP, nPred, bcAF, p, phat, name, eqId, archId):
     mapeLst.append(mape(p[sP+i,:,:,0], phat[i,:,:,0]))
 
   # Plots
-  fig = plt.figure(figsize=(21, 1+2*nPred), dpi=120, constrained_layout=True)
-  fig.suptitle(_getFigureTitle(eqId, archId), fontsize=16)
+  fig = plt.figure(figsize=(21, 1+2*nPred), dpi=600, constrained_layout=True)
 
   # Min, max values, needed for colobar range
   minBc, maxBc     = np.min(bcAF[sP:eP,:,:,0]), np.max(bcAF[sP:eP,:,:,0])
@@ -77,33 +157,33 @@ def plotPredictions(sP, nPred, bcAF, p, phat, name, eqId, archId):
 
     ax = fig.add_subplot(nPred, nCols, cnt+1)
     plt.ylabel("Frame {}".format(sP+i))
-    plt.title('bc')
-    plt.imshow(bcAF[iInput,:,:,0], vmin=minBc, vmax=maxBc, origin='lower')
+    plt.title('g')
+    plt.imshow(bcAF[iInput,:,:,0], vmin=minBc, vmax=maxBc, origin='lower', cmap='jet')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+2)
     plt.title('a')
-    plt.imshow(bcAF[iInput,:,:,1], vmin=minA, vmax=maxA, origin='lower')
+    plt.imshow(bcAF[iInput,:,:,1], vmin=minA, vmax=maxA, origin='lower', cmap='jet')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+3)
     plt.title('f')
-    plt.imshow(bcAF[iInput,:,:,2], vmin=minF, vmax=maxF, origin='lower')
+    plt.imshow(bcAF[iInput,:,:,2], vmin=minF, vmax=maxF, origin='lower', cmap='jet')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+4)
     plt.title('p')
-    plt.imshow(p[iInput,:,:,0], vmin=minP, vmax=maxP, origin='lower')
+    plt.imshow(p[iInput,:,:,0], vmin=minP, vmax=maxP, origin='lower', cmap='jet')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+5)
     plt.title('phat')
-    plt.imshow(phat[i,:,:,0], vmin=minP, vmax=maxP, origin='lower')
+    plt.imshow(phat[i,:,:,0], vmin=minP, vmax=maxP, origin='lower', cmap='jet')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+6)
     plt.title('abs(p-phat)')
-    plt.imshow(errorP[i,:,:], vmin=minPErr, vmax=maxPErr, origin='lower')
+    plt.imshow(errorP[i,:,:], vmin=minPErr, vmax=maxPErr, origin='lower', cmap='jet')
     plt.colorbar()
 
     ax = fig.add_subplot(nPred, nCols, cnt+7)

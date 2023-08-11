@@ -312,12 +312,23 @@ if args.train:
 
   UT.writeEpochTimes(name, eqId, archId, timeHistCB)
 
-if 0:
+if 1:
   UT.plotTimes(name, shape)
   sys.exit(0)
 
 # Predictions
-if nPred > 0:
+if nPred <= 0:
+  sys.exit(0)
+
+sP = 0 # Prediction start frame
+
+times = []
+eqIds = [0, 0, 1, 2] # Predict eq 0 twice to load model into memory (warmup)
+
+for cnt, i in enumerate(eqIds):
+  #tf.keras.backend.clear_session()
+  modelName = UT.getFileName('model', name, i, archId)
+
   if not os.path.exists(modelName):
     sys.exit('Model {} does not exist, exiting'.format(modelName))
 
@@ -325,12 +336,41 @@ if nPred > 0:
     print('Restoring model {}'.format(modelName))
     psnNet.load_weights(tf.train.latest_checkpoint(modelName)).expect_partial()
 
-  sP = 0 # Prediction start frame
-  if usingTfData:
-    phat = psnNet.predict(validDataset.take(count=nPred)) # Take from valid set for now
-  else:
-    phat = psnNet.predict(bcAF[sP:sP+nPred, ...])
+  bcAF, p = PD.getBcAFP(fname, nSample, shape, i)
+  phat, solveTime = psnNet.predict(bcAF[sP:sP+nPred, ...])
+  if cnt == 0:
+    continue
+  times.append(solveTime)
+  print('predict() execution time in secs: {}'.format(solveTime))
+  if 0:
+    UT.plotInput(sP, nPred, bcAF, p, phat, name, i, archId)
+    UT.plotSolution(sP, nPred, p, phat, name, i, archId)
+    UT.plotPredictions(sP, nPred, bcAF, p, phat, name, i, archId)
+    UT.plotLosses(modelName, 0, 50, name, i, archId)
 
-  UT.plotPredictions(sP, nPred, bcAF, p, phat, name, eqId, archId)
-  UT.plotLosses(modelName, 0, 500, name, eqId, archId)
+if 0:
+  modelName0 = UT.getFileName('model', name, 0, archId)
+  if not os.path.exists(modelName0):
+    sys.exit('Model {} does not exist, exiting'.format(modelName0))
+  if not args.train:
+    print('Restoring model {}'.format(modelName0))
+    psnNet.load_weights(tf.train.latest_checkpoint(modelName0)).expect_partial()
+  bcAF0, p0 = PD.getBcAFP(fname, nSample, shape, 0)
+  phat0 = psnNet.predict(bcAF0[sP:sP+nPred, ...])
+
+  modelName1 = UT.getFileName('model', name, 1, archId)
+  if not os.path.exists(modelName1):
+    sys.exit('Model {} does not exist, exiting'.format(modelName1))
+  if not args.train:
+    print('Restoring model {}'.format(modelName1))
+    psnNet.load_weights(tf.train.latest_checkpoint(modelName1)).expect_partial()
+  bcAF1, p1 = PD.getBcAFP(fname, nSample, shape, 1)
+  phat1 = psnNet.predict(bcAF1[sP:sP+nPred, ...])
+
+  UT.plotSolution(sP, nPred, p0+p1, phat0+phat1, name, 3, archId)
+
+
+if 0:
+  UT.writeTimes('psnnet', nPred, times)
+
 
