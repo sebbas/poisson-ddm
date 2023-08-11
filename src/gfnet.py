@@ -312,6 +312,10 @@ if args.train:
 
   UT.writeEpochTimes(name, eqId, archId, timeHistCB)
 
+if 0:
+  UT.plotTimes(name, shape)
+  sys.exit(0)
+
 # Predictions
 if nPred > 0:
   if not os.path.exists(modelName):

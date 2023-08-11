@@ -29,9 +29,17 @@ def mape(targets, predictions):
   return np.mean(np.abs((targets - predictions) / targets)) * 100.0
 
 
+def _getEquationStrs():
+  return ['Homogeneous Poisson', 'Inhomogeneous Laplace', 'Inhomogeneous Poisson']
+
+
+def _getArchitectureStrs():
+  return ['Simplified U-Net', 'Full U-Net + dropout', 'Full U-Net + batchnorm']
+
+
 def _getFigureTitle(eqId, archId):
-  equationStrs = ['Homogeneous Poisson', 'Inhomogeneous Laplace', 'Inhomogeneous Poisson']
-  architectureStrs = ['Simplified U-Net', 'Full U-Net + dropout', 'Full U-Net + batchnorm',]
+  equationStrs = _getEquationStrs()
+  architectureStrs = _getArchitectureStrs()
   return 'Equation: {}, Architecture: {}'.format(equationStrs[eqId], architectureStrs[archId])
 
 
@@ -158,6 +166,56 @@ def plotModel(net, name, eqId, archId):
   fname = getFileName('layers', name, eqId, archId)
   visualkeras.layered_view(model, to_file='../img/{}.png'.format(fname),
                            legend=True, font=font, spacing=80, scale_xy=180, max_xy=10000, scale_z=0.5, draw_volume=1)
+
+def plotTimes(name, shape):
+  equations = _getEquationStrs()
+
+  pyData = pd.read_csv('times_pyamg.csv')
+  psnData = pd.read_csv('times_psnnet.csv')
+
+  pySamples = pyData['n'].tolist()
+  pyPP = pyData['pp'].tolist()
+  pyPL = pyData['pl'].tolist()
+  pyPPI = pyData['ppi'].tolist()
+  psnSamples = psnData['n'].tolist()
+  psnPP = psnData['pp'].tolist()
+  psnPL = psnData['pl'].tolist()
+  psnPPI = psnData['ppi'].tolist()
+
+  assert len(pySamples) == len(psnSamples)
+  assert all(pyS == psnS for pyS, psnS in list(zip(pySamples, psnSamples)))
+
+  print(pySamples)
+  print(pyPP)
+  print(pyPL)
+  print(pyPPI)
+  print(psnSamples)
+  print(psnPP)
+  print(psnPL)
+  print(psnPPI)
+
+  fig = plt.figure(figsize=(5, 3), dpi=600)
+  #fig.suptitle('Time taken to solve or infer the solution of a {}x{} domain'.format(shape[0], shape[1]), fontsize=10)
+
+  classes = ['PyAMG Poisson (H)', 'PyAMG Laplace', 'PyAMG Poisson (IH)', 'psnNet Poisson (H)', 'psnNet Laplace', 'psnNet Poisson (IH)']
+  x = np.arange(len(pySamples))
+
+  plt.plot(x, pyPP, marker='o', linestyle='dashed', color='#1f77b4')
+  plt.plot(x, pyPL, marker='s', linestyle='dashed', color='#1f77b4')
+  plt.plot(x, pyPPI, marker='*', linestyle='dashed', color='#1f77b4')
+  plt.plot(x, psnPP, marker='o', linestyle='dashed', color='#ff7f0e')
+  plt.plot(x, psnPL, marker='s', linestyle='dashed', color='#ff7f0e')
+  plt.plot(x, psnPPI, marker='*', linestyle='dashed', color='#ff7f0e')
+
+  plt.xticks(x, pySamples)
+  plt.xlabel('Number of samples')
+  plt.ylabel('Time in seconds')
+  plt.legend(labels=classes, loc='upper left')
+  #plt.title('Time taken to solve / infer the solution of a {}x{} domain'.format(shape[0], shape[1]))
+
+  fname = f'{name}_times_pyamg_psnnet'
+  plt.savefig('../img/{}.png'.format(fname), bbox_inches='tight')
+  plt.close(fig)
 
 
 def writeEpochTimes(name, eqId, archId, timeHistCB):
