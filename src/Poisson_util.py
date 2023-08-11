@@ -3,6 +3,7 @@ import time
 from tensorflow import keras
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 
 
 class TimeHistory(keras.callbacks.Callback):
@@ -168,4 +169,16 @@ def writeEpochTimes(name, eqId, archId, timeHistCB):
     for t in timeHistCB.times:
       efile.write(f'{t}\n')
     efile.write(f'Average: {avgTimeEpoch}\n')
+
+
+def writeTimes(source, nSample, times):
+  fname = f'times_{source}.csv'
+  exists = os.path.isfile(fname)
+  header = 'n,pp,pl,ppi\n' # nSamples, Poisson (H), Laplace, Poisson (IH)
+  with open(f'{fname}', 'a') as efile:
+    if not exists: efile.write(header)
+    efile.write(f'{nSample},')
+    for t in range(len(times)-1):
+      efile.write(f'{times[t]},')
+    efile.write(f'{times[-1]}\n')
 
