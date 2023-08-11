@@ -53,7 +53,7 @@ class PoissonSolver2D:
           "norm": "L2"
         }
       })
-      self.rsc = pyamgx.Resources().create_simple(cfg)
+      self.rsc = pyamgx.Resources().create_simple(self.cfg)
       self.pyamgxSolver = pyamgx.Solver().create(self.rsc, self.cfg)
       self.AGpu = pyamgx.Matrix().create(self.rsc)
       self.bGpu = pyamgx.Vector().create(self.rsc)
