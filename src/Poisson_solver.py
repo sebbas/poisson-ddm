@@ -2,13 +2,72 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.linalg as linalg
 import scipy.sparse as sparse
-
+import time
 
 class PoissonSolver2D:
   ''' Solve equation \nabla\cdot a\nabla p = b
   '''
-  def __init__(self):
-    return
+  def __init__(self, backend=0):
+    self.tolerance = 1e-03
+    self.backend = backend
+
+    if backend == 1: # pyAmg (CPU) - single core only!
+      import pyamg
+
+    if backend == 2: # pyAmgx (GPU)
+      import pyamgx
+      pyamgx.initialize()
+      self.cfg = pyamgx.Config().create_from_dict({
+        "config_version": 2,
+        "solver": {
+          "preconditioner": {
+            "print_grid_stats": 1,
+            "print_vis_data": 0,
+            "solver": "AMG",
+            "smoother": {
+              "scope": "jacobi",
+              "solver": "BLOCK_JACOBI",
+              "monitor_residual": 0,
+              "print_solve_stats": 0
+            },
+            "print_solve_stats": 0,
+            "aggressive_levels": 2,
+            "presweeps": 1,
+            "interpolator": "D2",
+            "max_iters": 1,
+            "monitor_residual": 0,
+            "store_res_history": 0,
+            "scope": "amg",
+            "max_levels": 100,
+            "cycle": "V",
+            "postsweeps": 1
+          },
+          "solver": "PCG",
+          "print_solve_stats": 0,
+          "obtain_timings": 1,
+          "max_iters": 100,
+          "monitor_residual": 1,
+          "convergence": "ABSOLUTE",
+          "scope": "main",
+          "tolerance": self.tolerance,
+          "norm": "L2"
+        }
+      })
+      self.rsc = pyamgx.Resources().create_simple(cfg)
+      self.pyamgxSolver = pyamgx.Solver().create(rsc, cfg)
+      self.AGpu = pyamgx.Matrix().create(self.rsc)
+      self.bGpu = pyamgx.Vector().create(self.rsc)
+      self.xGpu = pyamgx.Vector().create(self.rsc)
+
+    def __del__(self):
+      if self.backend == 2:
+        self.AGpu.destroy()
+        self.xGpu.destroy()
+        self.bGpu.destroy()
+        self.pyamgxSolver.destroy()
+        self.rsc.destroy()
+        self.cfg.destroy()
+        pyamgx.finalize()
 
 
   def _build_matrix(self, a, coefBc=None):
@@ -105,10 +164,33 @@ class PoissonSolver2D:
     h = sz[0] / a.shape[0]
     A = self._build_matrix(a, coefBc)
     b = self._build_rhs(h, bc, rhs, coefBc=coefBc, coef=a)
-    x = sparse.linalg.spsolve(A, b)
+    if self.backend == 0:
+      sTime = time.perf_counter()
+      x = sparse.linalg.spsolve(A, b)
+      eTime = time.perf_counter()
+
+    elif self.backend == 1:
+      sTime = time.perf_counter()
+      x = pyamg.solve(A, b, verb=False, tol=self.tolerance)
+      eTime = time.perf_counter()
+
+    elif self.backend == 2:
+      x = np.zeros_like(rhs.flatten())
+      self.AGpu.upload_CSR(A)
+      self.bGpu.upload(b)
+      self.xGpu.upload(x)
+      self.pyamgxSolver.setup(AGpu)
+
+      sTime = time.perf_counter()
+      solver.solve(bGpu, xGpu)
+      eTime = time.perf_counter()
+
+      self.xGpu.download(x)
+
+    timeTaken = eTime - sTime
     x = np.reshape(x, a.shape)
 
-    return x
+    return x, timeTaken
 
 
   def compute_rhs(self, sz, p, bc, a, coefBc=None):
