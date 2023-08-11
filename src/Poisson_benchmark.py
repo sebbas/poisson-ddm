@@ -35,7 +35,7 @@ pBcData  = np.array(dFile.get('pBc'))
 aBcData  = np.array(dFile.get('aBc'))
 dFile.close()
 
-psnSol = PoissonSolver2D(backend=1)
+psnSol = PoissonSolver2D(backend=2)
 nx, ny = args.shape, args.shape
 lx, ly = 1.0, 1.0
 zeroBc = np.zeros(2*(nx+ny))

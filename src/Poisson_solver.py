@@ -54,7 +54,7 @@ class PoissonSolver2D:
         }
       })
       self.rsc = pyamgx.Resources().create_simple(cfg)
-      self.pyamgxSolver = pyamgx.Solver().create(rsc, cfg)
+      self.pyamgxSolver = pyamgx.Solver().create(self.rsc, self.cfg)
       self.AGpu = pyamgx.Matrix().create(self.rsc)
       self.bGpu = pyamgx.Vector().create(self.rsc)
       self.xGpu = pyamgx.Vector().create(self.rsc)
@@ -179,10 +179,10 @@ class PoissonSolver2D:
       self.AGpu.upload_CSR(A)
       self.bGpu.upload(b)
       self.xGpu.upload(x)
-      self.pyamgxSolver.setup(AGpu)
+      self.pyamgxSolver.setup(self.AGpu)
 
       sTime = time.perf_counter()
-      solver.solve(bGpu, xGpu)
+      self.pyamgxSolver.solve(self.bGpu, self.xGpu)
       eTime = time.perf_counter()
 
       self.xGpu.download(x)
