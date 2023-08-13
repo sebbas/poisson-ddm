@@ -14,12 +14,12 @@ conda activate psn
 python generate_Poisson_data.py -f ../data/train -n 20000
 ```
 
-Generates a `hdf5` dataset with 20.000 samples. One sample consists of 32x32 grids for components `a` (coefficient), `f` (right-hand side), `bc` (boundary condition), and `p` (solution) of the variable coefficient Poisson equation:
+Generates a `hdf5` dataset with 20.000 samples. One sample consists of 32x32 grids for components `a` (coefficient), `f` (right-hand side), `g` (boundary condition), and `p` (solution) of the variable coefficient Poisson equation:
 
 $$
 \begin{aligned}
 \nabla \cdot (a \nabla p(x,y)) &= f(x,y), \qquad (x,y) \in \Omega \\
-p(x,y) &= bc(x,y), \qquad (x,y) \in \partial\Omega
+p(x,y) &= g(x,y), \qquad (x,y) \in \partial\Omega
 \end{aligned}
 $$
 
