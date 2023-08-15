@@ -1,4 +1,3 @@
-#%%
 import numpy as np
 import scipy.stats.qmc as qmc
 import scipy.spatial.distance as distance

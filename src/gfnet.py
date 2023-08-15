@@ -13,6 +13,7 @@ import tensorflow.keras.callbacks as KC
 import Poisson_dataset as PD
 import Poisson_util as UT
 import Poisson_model as PM
+import Poisson_callbacks as CB
 
 keras.backend.set_floatx('float32')
 
@@ -241,9 +242,10 @@ modelName = UT.getFileName('model', name, eqId, archId)
 if args.visualize:
   psnNet.build(input_shape=(batchsize, shape[1], shape[0], nChannel))
   UT.plotModel(psnNet, name, eqId, archId)
+  sys.exit(0)
 
 # Callbacks
-timeHistCB   = UT.TimeHistory()
+timeHistCB   = CB.TimeHistory()
 tboardCB     = KC.TensorBoard(log_dir=os.path.join(args.tboardDir, datetime.now().strftime("%Y%m%d-%H%M%S")), histogram_freq=1, profile_batch='500, 520')
 checkpointCB = KC.ModelCheckpoint(filepath='./' + modelName + '/checkpoint', monitor='val_loss', save_best_only=True, save_weights_only=True, verbose=1)
 reduceLrCB   = KC.ReduceLROnPlateau(monitor='loss', min_delta=0.01, patience=args.patience, min_lr=args.lrmin)
