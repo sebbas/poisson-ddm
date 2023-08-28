@@ -2,6 +2,8 @@ import numpy as np
 import scipy.stats.qmc as qmc
 import scipy.spatial.distance as distance
 import matplotlib.pyplot as plt
+import math
+import copy
 
 class ScalarGenerator2D:
   def __init__(self, size=(1.0, 1.0), nCell=(32, 32), nKnot=(4, 4)):
@@ -58,7 +60,7 @@ class ScalarGenerator2D:
 
 
   def generate_scalar2d(self, nSample, valMin=0.0, valMax=1.0, outputBc=False,
-                        strictMin=False):
+                        strictMin=False, periodic=0):
     # create sobol sequence
     pow      = int(np.log2(self.nKnot[0]*self.nKnot[1]*nSample)) + 1
     sobolSeq = qmc.Sobol(d=1).random_base2(m=pow)
@@ -74,8 +76,16 @@ class ScalarGenerator2D:
     # R.B.Gramacy P148, Eqn 5.2
     s, e = 0, 0
     for i in range(nSample):
-      s, e  = e, e + self.nKnot[0] * self.nKnot[1]
-      knots = sobolSeq[s:e]
+      if periodic:
+        period = 30
+        A = 2*math.pi/period
+        if i%period == 0:
+          s, e = e, e + self.nKnot[0] * self.nKnot[1]
+        knots = copy.deepcopy(sobolSeq[s:e])
+        knots *= (math.sin(i/A-math.pi/2)+1) / 2
+      else:
+        s, e  = e, e + self.nKnot[0] * self.nKnot[1]
+        knots = sobolSeq[s:e]
       # interpolate one scalar with GP
       sca            = np.matmul(self.covMat, np.dot(self.knotCovMatInv, knots))
       samples[i,...] = np.reshape(sca, self.nCell)
@@ -130,7 +140,7 @@ class PeriodicScalarGenerator1D:
     self.covMat = np.exp(-self.covMat / self.lenScale)
 
 
-  def generate_periodic_scalar(self, nSample, valMin=0.0, valMax=1.0):
+  def generate_periodic_scalar(self, nSample, valMin=0.0, valMax=1.0, periodic=0):
     # create sobol sequence
     pow      = int(np.log2(self.nKnot*nSample)) + 1
     sobolSeq = qmc.Sobol(d=1).random_base2(m=pow)
@@ -143,8 +153,16 @@ class PeriodicScalarGenerator1D:
     # generate the scalar with GP
     s, e  = 0, 0
     for i in range(nSample):
-      s, e  = e, e + self.nKnot
-      knots         = sobolSeq[s:e]
+      if periodic:
+        period = 30
+        A = 2*math.pi/period
+        if i%period == 0:
+          s, e  = e, e + self.nKnot
+        knots = copy.deepcopy(sobolSeq[s:e])
+        knots *= (math.sin(i/A-math.pi/2)+1) / 2
+      else:
+        s, e  = e, e + self.nKnot
+        knots = sobolSeq[s:e]
       knots         = np.concatenate([knots, knots, knots], axis=0)
       # interpolate one scalar with GP
       sca           = np.matmul(self.covMat, np.dot(self.knotCovMatInv, knots))

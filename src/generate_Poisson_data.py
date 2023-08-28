@@ -11,6 +11,8 @@ parser.add_argument('-n', '--nSample',    type=int, default=100, \
                     help = "number of samples")
 parser.add_argument('-s', '--shape', type=int, default=32, \
                     help = "size of sample")
+parser.add_argument('-p', '--periodic', default=False, action='store_true',  \
+                    help = "generates additional samples between random samples")
 
 args = parser.parse_args()
 
@@ -44,12 +46,12 @@ aBcData = dFile.create_dataset('aBc', (nSample, 2*(ny+nx)), compression='gzip',
 
 # rhs, coefficients
 scaGen2D = ScalarGenerator2D((lx, ly), (nx, ny))
-f        = scaGen2D.generate_scalar2d(args.nSample, valMin=-10.0, valMax=10.0)
+f        = scaGen2D.generate_scalar2d(args.nSample, valMin=-10.0, valMax=10.0, periodic=args.periodic)
 a, aBc   = scaGen2D.generate_scalar2d(args.nSample, valMin=0.1, valMax= 1.0,\
-                                      outputBc=True, strictMin=True)
+                                      outputBc=True, strictMin=True, periodic=args.periodic)
 # solutions' bcs
 bcGen1D = PeriodicScalarGenerator1D(size =2*(lx + ly), nCell=2*(nx + ny), nKnot=8)
-pBc     = bcGen1D.generate_periodic_scalar(args.nSample, valMin=-1.0, valMax=1.0)
+pBc     = bcGen1D.generate_periodic_scalar(args.nSample, valMin=-1.0, valMax=1.0, periodic=args.periodic)
 
 # generate solution
 h      = lx / nx
