@@ -60,8 +60,8 @@ zeroBc = np.zeros(2*(nx+ny))
 zeroF  = np.zeros((ny, nx))
 for s in range(nSample):
 
-  pp[s,...] = psnSol.solve((lx, ly), zeroBc,   a[s,...], f[s,...], coefBc=aBc[s,:])
-  pl[s,...] = psnSol.solve((lx, ly), pBc[s,:], a[s,...], zeroF,    coefBc=aBc[s,:])
+  pp[s,...], _ = psnSol.solve((lx, ly), zeroBc,   a[s,...], f[s,...], coefBc=aBc[s,:])
+  pl[s,...], _ = psnSol.solve((lx, ly), pBc[s,:], a[s,...], zeroF,    coefBc=aBc[s,:])
 
   if (s+1) % 200 == 0:
     print("sample ", s+1)
