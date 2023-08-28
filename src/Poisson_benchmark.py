@@ -14,6 +14,7 @@ parser.add_argument('-l', '--architecture', type=int, default=2, \
                     help='architecture id (0: simplified U-Net, 1: Full U-Net + dropout, 2: Full U-Net + batchnorm)')
 parser.add_argument('-name', '--name', default='psnNet', help='model name prefix')
 parser.add_argument('-n', '--nSample', type=int, default=20000, help = 'number of samples to solve')
+parser.add_argument('-b', '--backend', type=int, default=2, help = 'numerical solver backend (0: scipy, 1: pyamg, 2: pyamgx)')
 args = parser.parse_args()
 
 fname   = args.file
@@ -35,7 +36,7 @@ pBcData  = np.array(dFile.get('pBc'))
 aBcData  = np.array(dFile.get('aBc'))
 dFile.close()
 
-psnSol = PoissonSolver2D(backend=2)
+psnSol = PoissonSolver2D(backend=args.backend)
 nx, ny = args.shape, args.shape
 lx, ly = 1.0, 1.0
 zeroBc = np.zeros(2*(nx+ny))
