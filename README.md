@@ -82,6 +82,6 @@ Separating the inhomogeneous Poisson equation into models for the Poisson zero-B
 ```
 python Poisson_benchmark.py -f ../data/test_32_100.h5 -n 100 -b 2
 ```
-Solves `n` instances from the test dataset numerically and logs times for all equations. Default solving backend is [`pyamgx`](https://github.com/shwina/pyamgx) (GPU). Alternatively, solving Poisson with the CPU is possible with [`pyamg`](https://github.com/pyamg/pyamg) (`-b 1`) or [`scipy.sparse.linalg.spsolve`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.spsolve.html) (`-b 0`).
+Solves `n` instances from the test dataset numerically and logs times for all equations. Default solving backend is [`pyamgx`](https://github.com/shwina/pyamgx) (GPU). Alternatively, solving Poisson with the CPU is possible with [`pyamg`](https://github.com/pyamg/pyamg) (`-b 1`) or [`scipy`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.spsolve.html) (`-b 0`).
 
 This utility script can be used to compare the inference time (performance / speed) of the models against a state-of-the-art numerical solver.
