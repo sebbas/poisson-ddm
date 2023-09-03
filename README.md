@@ -36,6 +36,16 @@ python gfnet.py -n 20000 -e 500 -f ../data/train_32_20000.h5 -b 64 -eq 2 -l 2
 Trains the inhomogeneous Poisson equation with 20.000 samples (90/10 train/valid split) for 500 epochs with a batchsize of 64 samples.
 Alternatively, the Laplace (`f=0`) or the Poisson equation with zero-BC (`bc=0`) can be trained with options `-eq 1` and `-eq 0`.
 
+### Hyperparameter tuning
+
+The total loss consists of data (along domain boundaries only) and physics loss (entire domain).
+
+$$
+\mathcal{L}\_{Total} = \mathcal{L}\_{Data} + \alpha \cdot \mathcal{L}\_{PDE}
+$$
+
+Hyperparameter `alpha` is tunable, e.g. `-a 0.01`.
+
 ## Test data generation
 
 ```
